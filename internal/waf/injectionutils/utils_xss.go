@@ -13,9 +13,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/utils"
 	"github.com/cespare/xxhash/v2"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 )
 
 func DetectXSSCache(input string, isStrict bool, cacheLife utils.CacheLife) bool {

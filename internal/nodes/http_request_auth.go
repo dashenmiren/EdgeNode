@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 // 执行认证

@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
 )
 
 func TestCounterTable_Increase(t *testing.T) {

@@ -3,9 +3,9 @@ package nodes_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
-	"github.com/TeaOSLab/EdgeNode/internal/caches"
-	"github.com/TeaOSLab/EdgeNode/internal/nodes"
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/nodes"
 )
 
 func TestHTTPCacheTaskManager_Loop(t *testing.T) {

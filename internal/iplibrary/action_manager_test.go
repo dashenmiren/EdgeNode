@@ -1,9 +1,10 @@
 package iplibrary
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/iwind/TeaGo/maps"
 	"testing"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/iwind/TeaGo/maps"
 )
 
 func TestActionManager_UpdateActions(t *testing.T) {
@@ -37,10 +38,9 @@ func TestActionManager_UpdateActions(t *testing.T) {
 			},
 		},
 		{
-			Id:   2,
-			Type: "iptables",
-			Params: maps.Map{
-			},
+			Id:     2,
+			Type:   "iptables",
+			Params: maps.Map{},
 		},
 	})
 

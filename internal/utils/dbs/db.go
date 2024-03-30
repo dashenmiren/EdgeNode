@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/events"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	fsutils "github.com/TeaOSLab/EdgeNode/internal/utils/fs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	_ "github.com/mattn/go-sqlite3"
 )
 

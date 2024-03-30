@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 )
 
 func TestNewTaskGroup(t *testing.T) {

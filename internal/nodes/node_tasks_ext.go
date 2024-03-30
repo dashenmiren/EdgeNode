@@ -2,7 +2,7 @@
 
 package nodes
 
-import "github.com/TeaOSLab/EdgeNode/internal/rpc"
+import "github.com/dashenmiren/EdgeNode/internal/rpc"
 
 func (this *Node) execScriptsChangedTask() error {
 	// stub

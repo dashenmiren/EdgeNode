@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/counters"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 )

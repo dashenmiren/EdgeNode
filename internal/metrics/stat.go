@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fnv"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
 )
 
 type Stat struct {

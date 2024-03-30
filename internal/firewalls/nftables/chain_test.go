@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/firewalls/nftables"
+	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 )
 
 func getIPv4Chain(t *testing.T) *nftables.Chain {

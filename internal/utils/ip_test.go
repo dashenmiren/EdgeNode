@@ -1,9 +1,10 @@
 package utils_test
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/assert"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/iwind/TeaGo/assert"
 )
 
 func TestIP2Long(t *testing.T) {

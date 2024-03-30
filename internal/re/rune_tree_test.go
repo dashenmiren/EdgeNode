@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/re"
 	"github.com/iwind/TeaGo/assert"
 )
 
@@ -21,7 +21,7 @@ func TestNewRuneTree(t *testing.T) {
 	a.IsFalse(tree.Lookup("de", true))
 	a.IsFalse(tree.Lookup("de f", true))
 	a.IsTrue(tree.Lookup("我是中国人", true))
-	a.IsTrue(tree.Lookup("iwind.liu@gmail.com", true))
+	a.IsTrue(tree.Lookup("google@gmail.com", true))
 }
 
 func TestNewRuneTree2(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/firewalls"
-	"github.com/TeaOSLab/EdgeNode/internal/iplibrary"
+	"github.com/dashenmiren/EdgeNode/internal/firewalls"
+	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 )
 
 type BaseClientConn struct {

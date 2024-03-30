@@ -4,7 +4,7 @@
 package firewalls
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/ddosconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/ddosconfigs"
 )
 
 var SharedDDoSProtectionManager = NewDDoSProtectionManager()

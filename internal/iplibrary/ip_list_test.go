@@ -1,16 +1,17 @@
 package iplibrary
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/assert"
-	"github.com/iwind/TeaGo/logs"
-	"github.com/iwind/TeaGo/rands"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/iwind/TeaGo/assert"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/rands"
 )
 
 func TestIPList_Add_Empty(t *testing.T) {

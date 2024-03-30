@@ -3,7 +3,7 @@ package agents_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/agents"
+	"github.com/dashenmiren/EdgeNode/internal/utils/agents"
 )
 
 func TestIsAgentFromUserAgent(t *testing.T) {

@@ -5,7 +5,7 @@ package minifiers
 import (
 	"net/http"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 // MinifyResponse minify response body

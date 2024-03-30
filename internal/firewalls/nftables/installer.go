@@ -8,12 +8,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/events"
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	executils "github.com/TeaOSLab/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/logs"
 )
 

@@ -6,11 +6,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
-	"github.com/TeaOSLab/EdgeNode/internal/configs"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/encrypt"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"net/url"
+	"sync"
+	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeNode/internal/configs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/encrypt"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/rands"
 	"google.golang.org/grpc"
@@ -20,9 +24,6 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
-	"net/url"
-	"sync"
-	"time"
 )
 
 type RPCClient struct {

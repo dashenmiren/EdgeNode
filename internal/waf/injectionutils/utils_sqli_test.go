@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/waf/injectionutils"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/utils"
+	"github.com/dashenmiren/EdgeNode/internal/waf/injectionutils"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"

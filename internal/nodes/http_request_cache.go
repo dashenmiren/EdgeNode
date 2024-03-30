@@ -3,20 +3,21 @@ package nodes
 import (
 	"bytes"
 	"errors"
-	"github.com/TeaOSLab/EdgeCommon/pkg/configutils"
-	"github.com/TeaOSLab/EdgeNode/internal/caches"
-	"github.com/TeaOSLab/EdgeNode/internal/compressions"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	rangeutils "github.com/TeaOSLab/EdgeNode/internal/utils/ranges"
-	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/iwind/TeaGo/types"
 )
 
 // 读取缓存

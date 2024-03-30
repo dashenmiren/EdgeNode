@@ -3,7 +3,7 @@ package waf
 import (
 	"net/http"
 
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 type PageAction struct {

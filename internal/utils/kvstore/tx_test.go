@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
 )
 
 func TestTable_ReadTx(t *testing.T) {

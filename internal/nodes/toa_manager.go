@@ -2,7 +2,7 @@
 
 package nodes
 
-import "github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
+import "github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 
 var sharedTOAManager = NewTOAManager()
 

@@ -5,7 +5,7 @@ package nftables_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/firewalls/nftables"
+	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 )
 
 func getIPv4Table(t *testing.T) *nftables.Table {

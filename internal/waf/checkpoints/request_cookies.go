@@ -1,11 +1,12 @@
 package checkpoints
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/utils"
-	"github.com/iwind/TeaGo/maps"
 	"net/url"
 	"strings"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/iwind/TeaGo/maps"
 )
 
 type RequestCookiesCheckpoint struct {

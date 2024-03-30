@@ -1,11 +1,12 @@
 package iplibrary
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
-	"github.com/iwind/TeaGo/logs"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/iwind/TeaGo/logs"
 )
 
 func TestIPListManager_init(t *testing.T) {
@@ -41,7 +42,7 @@ func TestIPListManager_loop(t *testing.T) {
 		return
 	}
 
-	var  manager = NewIPListManager()
+	var manager = NewIPListManager()
 	manager.Start()
 	err := manager.loop()
 	if err != nil {

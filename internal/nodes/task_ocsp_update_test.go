@@ -3,7 +3,7 @@ package nodes_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/nodes"
+	"github.com/dashenmiren/EdgeNode/internal/nodes"
 )
 
 func TestOCSPUpdateTask_Loop(t *testing.T) {

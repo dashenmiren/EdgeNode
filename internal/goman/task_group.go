@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 type TaskGroup struct {

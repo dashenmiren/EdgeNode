@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 )
 
 var (

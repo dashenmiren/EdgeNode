@@ -1,6 +1,6 @@
 package nodes
 
-import "github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+import "github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 
 type OriginState struct {
 	CountFails   int64

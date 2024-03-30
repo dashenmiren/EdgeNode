@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/conns"
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	executils "github.com/TeaOSLab/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/conns"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/types"
 )
 

@@ -14,9 +14,9 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/utils"
 	"github.com/cespare/xxhash/v2"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 )
 
 // DetectSQLInjectionCache detect sql injection in string with cache

@@ -1,9 +1,10 @@
 package ttlcache
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils/expires"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
 	"sync"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils/expires"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 type Piece[T any] struct {

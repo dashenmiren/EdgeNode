@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/stats"
-	syncutils "github.com/TeaOSLab/EdgeNode/internal/utils/sync"
+	"github.com/dashenmiren/EdgeNode/internal/stats"
+	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/types"
 )

@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/ttlcache"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/dbs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fnv"
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
+	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 	"github.com/iwind/TeaGo/types"
 )
 

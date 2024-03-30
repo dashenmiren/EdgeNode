@@ -11,8 +11,8 @@ import (
 	"regexp"
 	"time"
 
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	executils "github.com/TeaOSLab/EdgeNode/internal/utils/exec"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/iwind/TeaGo/assert"
 )
 

@@ -1,7 +1,7 @@
 package nodes
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/stats"
+	"github.com/dashenmiren/EdgeNode/internal/stats"
 )
 
 // 统计

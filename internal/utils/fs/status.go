@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/shirou/gopsutil/v3/load"
 )

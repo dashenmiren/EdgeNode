@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/counters"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"

@@ -3,10 +3,11 @@ package caches
 import (
 	"encoding/binary"
 	"errors"
-	rangeutils "github.com/TeaOSLab/EdgeNode/internal/utils/ranges"
-	"github.com/iwind/TeaGo/types"
 	"io"
 	"os"
+
+	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/iwind/TeaGo/types"
 )
 
 type FileReader struct {

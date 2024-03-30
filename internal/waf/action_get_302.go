@@ -1,14 +1,15 @@
 package waf
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
 )
 
 const (

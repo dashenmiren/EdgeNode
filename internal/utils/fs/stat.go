@@ -3,7 +3,7 @@ package fsutils
 import (
 	"sync"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"golang.org/x/sys/unix"
 )
 

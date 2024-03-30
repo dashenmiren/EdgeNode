@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/kvstore"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 type testCachedItem struct {

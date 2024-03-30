@@ -3,7 +3,7 @@ package metrics
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 func TestNewManager(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/re"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/runes"
+	"github.com/dashenmiren/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/utils/runes"
 	"github.com/iwind/TeaGo/assert"
 )
 

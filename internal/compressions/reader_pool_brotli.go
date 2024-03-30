@@ -3,8 +3,8 @@ package compressions
 import (
 	"io"
 
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
 var sharedBrotliReaderPool *ReaderPool

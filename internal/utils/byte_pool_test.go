@@ -2,10 +2,11 @@ package utils_test
 
 import (
 	"bytes"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
 	"runtime"
 	"sync"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
 func TestBytePool_Memory(t *testing.T) {

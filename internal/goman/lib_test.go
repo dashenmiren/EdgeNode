@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 )
 
 func TestNew(t *testing.T) {

@@ -3,7 +3,7 @@ package fsutils_test
 import (
 	"testing"
 
-	fsutils "github.com/TeaOSLab/EdgeNode/internal/utils/fs"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	"github.com/iwind/TeaGo/assert"
 )
 

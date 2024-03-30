@@ -3,7 +3,7 @@ package waf
 import (
 	"sync"
 
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 var deletedIPListIdMap = map[int64]zero.Zero{} // listId => Zero

@@ -1,16 +1,17 @@
 package utils
 
 import (
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/re"
-	"github.com/TeaOSLab/EdgeNode/internal/ttlcache"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/cachehits"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"strconv"
+
 	"github.com/cespare/xxhash/v2"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
+	"github.com/dashenmiren/EdgeNode/internal/utils/cachehits"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"
-	"strconv"
 )
 
 var SharedCache = ttlcache.NewCache[int8]()

@@ -1,17 +1,18 @@
 package apps
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/sizes"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/files"
-	timeutil "github.com/iwind/TeaGo/utils/time"
 	"log"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/sizes"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/files"
+	timeutil "github.com/iwind/TeaGo/utils/time"
 )
 
 type LogWriter struct {

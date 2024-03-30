@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/compressions"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	stringutil "github.com/iwind/TeaGo/utils/string"
 )
 

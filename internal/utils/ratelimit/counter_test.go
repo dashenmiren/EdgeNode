@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/ratelimit"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ratelimit"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 func TestCounter_ACK(t *testing.T) {

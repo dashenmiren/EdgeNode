@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 const HashMapSharding = 31

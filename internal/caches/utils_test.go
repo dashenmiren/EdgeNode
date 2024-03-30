@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/caches"
 	"github.com/cespare/xxhash"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/iwind/TeaGo/types"
 )
 

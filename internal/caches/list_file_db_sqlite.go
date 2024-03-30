@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/dbs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"github.com/iwind/TeaGo/logs"
 	"github.com/iwind/TeaGo/types"
 )

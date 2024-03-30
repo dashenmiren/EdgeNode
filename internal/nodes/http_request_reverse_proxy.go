@@ -3,19 +3,20 @@ package nodes
 import (
 	"context"
 	"errors"
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/shared"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fnv"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/minifiers"
-	"github.com/iwind/TeaGo/lists"
-	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
+	"github.com/dashenmiren/EdgeNode/internal/utils/minifiers"
+	"github.com/iwind/TeaGo/lists"
+	"github.com/iwind/TeaGo/types"
 )
 
 // 处理反向代理

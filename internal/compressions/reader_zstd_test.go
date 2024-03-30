@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/compressions"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 )

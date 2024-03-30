@@ -1,7 +1,7 @@
 package counters
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 const spanMaxValue = 10_000_000

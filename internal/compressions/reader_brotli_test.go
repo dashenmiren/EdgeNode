@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/compressions"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 )
 
 func TestBrotliReader(t *testing.T) {

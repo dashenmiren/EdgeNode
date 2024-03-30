@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/waf/checkpoints"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestHeaderNamesCheckpoint_RequestValue(t *testing.T) {

@@ -3,16 +3,17 @@ package waf
 import (
 	"errors"
 	"fmt"
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/checkpoints"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/files"
-	"gopkg.in/yaml.v3"
 	"net/http"
 	"os"
 	"reflect"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/files"
+	"gopkg.in/yaml.v3"
 )
 
 type WAF struct {

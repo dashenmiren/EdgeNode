@@ -7,7 +7,7 @@ import (
 	"net/textproto"
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/readers"
+	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
 )
 
 func TestNewByteRangesReader(t *testing.T) {

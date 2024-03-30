@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/goman"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/linkedlist"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/linkedlist"
 	"github.com/fsnotify/fsnotify"
 	"github.com/iwind/TeaGo/logs"
 	"github.com/iwind/TeaGo/types"

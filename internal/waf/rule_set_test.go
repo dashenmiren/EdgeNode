@@ -2,15 +2,16 @@ package waf_test
 
 import (
 	"bytes"
-	"github.com/TeaOSLab/EdgeNode/internal/waf"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
-	"github.com/cespare/xxhash"
-	"github.com/iwind/TeaGo/assert"
-	"github.com/iwind/TeaGo/maps"
 	"net/http"
 	"regexp"
 	"runtime"
 	"testing"
+
+	"github.com/cespare/xxhash"
+	"github.com/dashenmiren/EdgeNode/internal/waf"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/assert"
+	"github.com/iwind/TeaGo/maps"
 )
 
 func TestRuleSet_MatchRequest(t *testing.T) {

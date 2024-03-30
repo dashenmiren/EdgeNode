@@ -4,10 +4,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	syncutils "github.com/TeaOSLab/EdgeNode/internal/utils/sync"
 	"github.com/cespare/xxhash"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 )
 
 const maxItemsPerGroup = 50_000

@@ -1,9 +1,10 @@
 package ttlcache
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
 	"runtime"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 var SharedInt64Cache = NewBigCache[int64]()

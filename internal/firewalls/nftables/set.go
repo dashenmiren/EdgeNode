@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	nft "github.com/google/nftables"
 )
 

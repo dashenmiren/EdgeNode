@@ -2,9 +2,10 @@ package caches
 
 import (
 	"errors"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/cespare/xxhash"
 	"sync"
+
+	"github.com/cespare/xxhash"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 type MemoryWriter struct {

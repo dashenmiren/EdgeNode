@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	fsutils "github.com/TeaOSLab/EdgeNode/internal/utils/fs"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 )
 
 func TestStat(t *testing.T) {

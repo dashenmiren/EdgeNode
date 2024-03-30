@@ -1,19 +1,20 @@
 package ttlcache
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/fasttime"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
-	"github.com/iwind/TeaGo/assert"
-	"github.com/iwind/TeaGo/rands"
-	"github.com/iwind/TeaGo/types"
-	timeutil "github.com/iwind/TeaGo/utils/time"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/iwind/TeaGo/assert"
+	"github.com/iwind/TeaGo/rands"
+	"github.com/iwind/TeaGo/types"
+	timeutil "github.com/iwind/TeaGo/utils/time"
 )
 
 func TestNewCache(t *testing.T) {

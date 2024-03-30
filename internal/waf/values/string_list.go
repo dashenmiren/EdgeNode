@@ -3,7 +3,7 @@ package values
 import (
 	"strings"
 
-	"github.com/TeaOSLab/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 type StringList struct {

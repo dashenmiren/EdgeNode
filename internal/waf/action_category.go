@@ -1,6 +1,6 @@
 package waf
 
-import "github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+import "github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 
 type ActionCategory = string
 

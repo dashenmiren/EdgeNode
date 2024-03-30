@@ -4,10 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	rangeutils "github.com/TeaOSLab/EdgeNode/internal/utils/ranges"
-	"github.com/iwind/TeaGo/types"
 	"io"
 	"os"
+
+	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/iwind/TeaGo/types"
 )
 
 type PartialFileReader struct {

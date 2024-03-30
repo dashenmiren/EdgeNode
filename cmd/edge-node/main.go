@@ -4,19 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/apps"
-	"github.com/TeaOSLab/EdgeNode/internal/configs"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/nodes"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
-	fsutils "github.com/TeaOSLab/EdgeNode/internal/utils/fs"
-	"github.com/iwind/TeaGo/Tea"
-	_ "github.com/iwind/TeaGo/bootstrap"
-	"github.com/iwind/TeaGo/logs"
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
-	"github.com/iwind/gosock/pkg/gosock"
-	"gopkg.in/yaml.v3"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -25,6 +12,20 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/apps"
+	"github.com/dashenmiren/EdgeNode/internal/configs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/nodes"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/iwind/TeaGo/Tea"
+	_ "github.com/iwind/TeaGo/bootstrap"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
+	"github.com/iwind/gosock/pkg/gosock"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -552,7 +553,7 @@ func main() {
 			return
 		}
 
-		err = os.WriteFile(Tea.Root + "/configs/api_node.yaml", configYAML, 0666)
+		err = os.WriteFile(Tea.Root+"/configs/api_node.yaml", configYAML, 0666)
 		if err != nil {
 			fmt.Println("[ERROR]write config failed: " + err.Error())
 			return

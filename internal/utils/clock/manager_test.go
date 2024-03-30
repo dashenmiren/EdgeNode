@@ -3,8 +3,8 @@ package clock_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/clock"
-	"github.com/TeaOSLab/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/clock"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 func TestReadServer(t *testing.T) {

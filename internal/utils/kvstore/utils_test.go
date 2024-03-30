@@ -3,7 +3,7 @@ package kvstore_test
 import (
 	"testing"
 
-	"github.com/TeaOSLab/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/assert"
 	_ "github.com/iwind/TeaGo/bootstrap"

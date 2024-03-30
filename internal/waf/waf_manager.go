@@ -1,11 +1,12 @@
 package waf
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/TeaOSLab/EdgeNode/internal/errors"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
 	"strconv"
 	"sync"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/errors"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 )
 
 var SharedWAFManager = NewWAFManager()
