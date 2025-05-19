@@ -13,7 +13,7 @@ import (
 
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 	"github.com/iwind/TeaGo/types"
 )
 

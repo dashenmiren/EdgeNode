@@ -1,4 +1,12 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore
+
+import (
+	"fmt"
+
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+)
 
 type Logger struct {
 }
@@ -8,8 +16,13 @@ func NewLogger() *Logger {
 }
 
 func (this *Logger) Infof(format string, args ...any) {
-
+	// stub
 }
-func (this *Logger) Fatalf(format string, args ...any) {
 
+func (this *Logger) Errorf(format string, args ...any) {
+	remotelogs.Error("KV", fmt.Sprintf(format, args...))
+}
+
+func (this *Logger) Fatalf(format string, args ...any) {
+	remotelogs.Error("KV", fmt.Sprintf(format, args...))
 }

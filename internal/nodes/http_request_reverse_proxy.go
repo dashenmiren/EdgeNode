@@ -11,8 +11,10 @@ import (
 
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
 	"github.com/dashenmiren/EdgeNode/internal/utils/minifiers"
 	"github.com/iwind/TeaGo/lists"
@@ -20,7 +22,8 @@ import (
 )
 
 // 处理反向代理
-func (this *HTTPRequest) doReverseProxy() {
+// writeToClient 读取响应并发送到客户端
+func (this *HTTPRequest) doReverseProxy(writeToClient bool) (resultResp *http.Response) {
 	if this.reverseProxy == nil {
 		return
 	}
@@ -32,8 +35,9 @@ func (this *HTTPRequest) doReverseProxy() {
 	var failStatusCode int
 
 	for i := 0; i < retries; i++ {
-		originId, lnNodeId, shouldRetry := this.doOriginRequest(failedOriginIds, failedLnNodeIds, i == 0, i == retries-1, &failStatusCode)
+		originId, lnNodeId, shouldRetry, resp := this.doOriginRequest(failedOriginIds, failedLnNodeIds, i == 0, i == retries-1, &failStatusCode, writeToClient)
 		if !shouldRetry {
+			resultResp = resp
 			break
 		}
 		if originId > 0 {
@@ -43,10 +47,12 @@ func (this *HTTPRequest) doReverseProxy() {
 			failedLnNodeIds = append(failedLnNodeIds, lnNodeId)
 		}
 	}
+
+	return
 }
 
 // 请求源站
-func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeIds []int64, isFirstTry bool, isLastRetry bool, failStatusCode *int) (originId int64, lnNodeId int64, shouldRetry bool) {
+func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeIds []int64, isFirstTry bool, isLastRetry bool, failStatusCode *int, writeToClient bool) (originId int64, lnNodeId int64, shouldRetry bool, resultResp *http.Response) {
 	// 对URL的处理
 	var stripPrefix = this.reverseProxy.StripPrefix
 	var requestURI = this.reverseProxy.RequestURI
@@ -290,8 +296,44 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 			this.RawReq.URL.Scheme = "http"
 		}
 
+		// request origin with Accept-Encoding: gzip, ...
+		var rawAcceptEncoding string
+		var acceptEncodingChanged bool
+		if this.nodeConfig != nil &&
+			this.nodeConfig.GlobalServerConfig != nil &&
+			this.nodeConfig.GlobalServerConfig.HTTPAll.RequestOriginsWithEncodings &&
+			this.RawReq.ProtoAtLeast(1, 1) &&
+			this.RawReq.Header != nil {
+			rawAcceptEncoding = this.RawReq.Header.Get("Accept-Encoding")
+			if len(rawAcceptEncoding) == 0 {
+				this.RawReq.Header.Set("Accept-Encoding", "gzip")
+				acceptEncodingChanged = true
+			} else if strings.Index(rawAcceptEncoding, "gzip") < 0 {
+				this.RawReq.Header.Set("Accept-Encoding", rawAcceptEncoding+", gzip")
+				acceptEncodingChanged = true
+			}
+		}
+
 		// 开始请求
 		resp, requestErr = client.Do(this.RawReq)
+
+		// recover Accept-Encoding
+		if acceptEncodingChanged {
+			if len(rawAcceptEncoding) > 0 {
+				this.RawReq.Header.Set("Accept-Encoding", rawAcceptEncoding)
+			} else {
+				this.RawReq.Header.Del("Accept-Encoding")
+			}
+
+			if resp != nil && resp.Header != nil && resp.Header.Get("Content-Encoding") == "gzip" {
+				bodyReader, gzipErr := compressions.NewGzipReader(resp.Body)
+				if gzipErr == nil {
+					resp.Body = bodyReader
+				}
+				resp.TransferEncoding = nil
+				resp.Header.Del("Content-Encoding")
+			}
+		}
 	} else if origin.OSS != nil { // OSS源站
 		var goNext bool
 		resp, goNext, requestErrCode, _, requestErr = this.doOSSOrigin(origin)
@@ -308,7 +350,9 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 	if resp != nil && resp.Body != nil {
 		defer func() {
 			if !respBodyIsClosed {
-				_ = resp.Body.Close()
+				if writeToClient {
+					_ = resp.Body.Close()
+				}
 			}
 		}()
 	}
@@ -316,7 +360,7 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 	if requestErr != nil {
 		// 客户端取消请求，则不提示
 		var httpErr *url.Error
-		ok := errors.As(requestErr, &httpErr)
+		var ok = errors.As(requestErr, &httpErr)
 		if !ok {
 			if isHTTPOrigin {
 				SharedOriginStateManager.Fail(origin, requestHost, this.reverseProxy, func() {
@@ -362,18 +406,16 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 		} else {
 			// 是否为客户端方面的错误
 			var isClientError = false
-			if ok {
-				if errors.Is(httpErr, context.Canceled) {
-					// 如果是服务器端主动关闭，则无需提示
-					if this.isConnClosed() {
-						this.disableLog = true
-						return
-					}
-
-					isClientError = true
-					this.addError(errors.New(httpErr.Op + " " + httpErr.URL + ": client closed the connection"))
-					this.writer.WriteHeader(499) // 仿照nginx
+			if errors.Is(httpErr, context.Canceled) {
+				// 如果是服务器端主动关闭，则无需提示
+				if this.isConnClosed() {
+					this.disableLog = true
+					return
 				}
+
+				isClientError = true
+				this.addError(errors.New(httpErr.Op + " " + httpErr.URL + ": client closed the connection"))
+				this.writer.WriteHeader(499) // 仿照nginx
 			}
 
 			if !isClientError {
@@ -385,6 +427,11 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 
 	if resp == nil {
 		this.write50x(requestErr, http.StatusBadGateway, "Failed to read origin site", "源站读取失败", true)
+		return
+	}
+
+	if !writeToClient {
+		resultResp = resp
 		return
 	}
 
@@ -547,9 +594,9 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 	// 是否有内容
 	if resp.ContentLength == 0 && len(resp.TransferEncoding) == 0 {
 		// 即使内容为0，也需要读取一次，以便于触发相关事件
-		var buf = utils.BytePool4k.Get()
-		_, _ = io.CopyBuffer(this.writer, resp.Body, buf)
-		utils.BytePool4k.Put(buf)
+		var buf = bytepool.Pool4k.Get()
+		_, _ = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
+		bytepool.Pool4k.Put(buf)
 		_ = resp.Body.Close()
 		respBodyIsClosed = true
 
@@ -563,9 +610,9 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 	var err error
 	if shouldAutoFlush {
 		for {
-			n, readErr := resp.Body.Read(buf)
+			n, readErr := resp.Body.Read(buf.Bytes)
 			if n > 0 {
-				_, err = this.writer.Write(buf[:n])
+				_, err = this.writer.Write(buf.Bytes[:n])
 				this.writer.Flush()
 				if err != nil {
 					break
@@ -583,10 +630,10 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 			resp.ContentLength < (128<<20) { // TODO configure max content-length in cache policy OR CacheRef
 			var requestIsCanceled = false
 			for {
-				n, readErr := resp.Body.Read(buf)
+				n, readErr := resp.Body.Read(buf.Bytes)
 
 				if n > 0 && !requestIsCanceled {
-					_, err = this.writer.Write(buf[:n])
+					_, err = this.writer.Write(buf.Bytes[:n])
 					if err != nil {
 						requestIsCanceled = true
 					}
@@ -597,7 +644,7 @@ func (this *HTTPRequest) doOriginRequest(failedOriginIds []int64, failedLnNodeId
 				}
 			}
 		} else {
-			_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+			_, err = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
 		}
 	}
 	pool.Put(buf)

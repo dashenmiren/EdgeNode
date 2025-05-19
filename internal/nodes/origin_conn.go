@@ -1,3 +1,5 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
@@ -6,9 +8,9 @@ import (
 	"time"
 
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 )
 
 const originConnCloseDelaySeconds = 3

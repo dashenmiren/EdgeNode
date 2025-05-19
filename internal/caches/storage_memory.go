@@ -10,16 +10,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cespare/xxhash"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
+	"github.com/cespare/xxhash/v2"
 	"github.com/iwind/TeaGo/types"
 )
 
@@ -55,7 +56,9 @@ type MemoryStorage struct {
 
 	purgeTicker *utils.Ticker
 
-	usedSize      int64
+	usedSize       int64
+	totalDirtySize int64
+
 	writingKeyMap map[string]zero.Zero // key => bool
 
 	ignoreKeys *setutils.FixedSet
@@ -67,7 +70,7 @@ func NewMemoryStorage(policy *serverconfigs.HTTPCachePolicy, parentStorage Stora
 
 	if parentStorage != nil {
 		if queueSize <= 0 {
-			queueSize = utils.SystemMemoryGB() * 100_000
+			queueSize = memutils.SystemMemoryGB() * 100_000
 		}
 
 		dirtyChan = make(chan string, queueSize)
@@ -100,10 +103,19 @@ func (this *MemoryStorage) Init() error {
 
 	// 启动定时Flush memory to disk任务
 	if this.parentStorage != nil {
-		// TODO 应该根据磁盘性能决定线程数
-		// TODO 线程数应该可以在缓存策略和节点中设定
-		var threads = runtime.NumCPU()
-
+		var threads = 2
+		var numCPU = runtime.NumCPU()
+		if fsutils.DiskIsExtremelyFast() {
+			if numCPU >= 8 {
+				threads = 8
+			} else {
+				threads = 4
+			}
+		} else if fsutils.DiskIsFast() {
+			if numCPU >= 4 {
+				threads = 4
+			}
+		}
 		for i := 0; i < threads; i++ {
 			goman.New(func() {
 				this.startFlush()
@@ -119,7 +131,7 @@ func (this *MemoryStorage) OpenReader(key string, useStale bool, isPartial bool)
 	var hash = this.hash(key)
 
 	// check if exists in list
-	exists, _ := this.list.Exist(types.String(hash))
+	exists, _, _ := this.list.Exist(types.String(hash))
 	if !exists {
 		return nil, ErrNotFound
 	}
@@ -178,7 +190,7 @@ func (this *MemoryStorage) openWriter(key string, expiresAt int64, status int, h
 	if isDirty &&
 		this.parentStorage != nil &&
 		this.dirtyQueueSize > 0 &&
-		len(this.dirtyChan) >= this.dirtyQueueSize-int(fsutils.DiskMaxWrites) /** delta **/ { // 缓存时间过长
+		len(this.dirtyChan) >= this.dirtyQueueSize-64 /** delta **/ { // 缓存时间过长
 		return nil, ErrWritingQueueFull
 	}
 
@@ -203,7 +215,7 @@ func (this *MemoryStorage) openWriter(key string, expiresAt int64, status int, h
 	item, ok := this.valuesMap[hash]
 	if ok && !item.IsExpired() {
 		var hashString = types.String(hash)
-		exists, _ := this.list.Exist(hashString)
+		exists, _, _ := this.list.Exist(hashString)
 		if !exists {
 			// remove from values map
 			delete(this.valuesMap, hash)
@@ -330,6 +342,9 @@ func (this *MemoryStorage) Stop() {
 	if this.dirtyChan != nil {
 		close(this.dirtyChan)
 	}
+
+	this.usedSize = 0
+	this.totalDirtySize = 0
 
 	_ = this.list.Close()
 
@@ -497,14 +512,20 @@ func (this *MemoryStorage) startFlush() {
 
 		if fsutils.IsInExtremelyHighLoad {
 			time.Sleep(1 * time.Second)
-		} else if fsutils.IsInHighLoad {
-			time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
 
 // 单次Flush任务
-func (this *MemoryStorage) flushItem(key string) {
+func (this *MemoryStorage) flushItem(fullKey string) {
+	sizeString, key, found := strings.Cut(fullKey, "@")
+	if !found {
+		return
+	}
+	defer func() {
+		atomic.AddInt64(&this.totalDirtySize, -types.Int64(sizeString))
+	}()
+
 	if this.parentStorage == nil {
 		return
 	}
@@ -517,11 +538,6 @@ func (this *MemoryStorage) flushItem(key string) {
 	// 从内存中移除，并确保无论如何都会执行
 	defer func() {
 		_ = this.Delete(key)
-
-		// 重用内存，前提是确保内存不再被引用
-		if enableFragmentPool && ok && item.IsDone && !item.isReferring && len(item.BodyValue) > 0 {
-			SharedFragmentMemoryPool.Put(item.BodyValue)
-		}
 	}()
 
 	if !ok {
@@ -537,13 +553,28 @@ func (this *MemoryStorage) flushItem(key string) {
 	}
 
 	// 检查是否在列表中，防止未加入列表时就开始flush
-	isInList, err := this.list.Exist(types.String(hash))
+	isInList, _, err := this.list.Exist(types.String(hash))
 	if err != nil {
 		remotelogs.Error("CACHE", "flush items failed: "+err.Error())
 		return
 	}
 	if !isInList {
-		time.Sleep(1 * time.Second)
+		for i := 0; i < 1000; i++ {
+			isInList, _, err = this.list.Exist(types.String(hash))
+			if err != nil {
+				remotelogs.Error("CACHE", "flush items failed: "+err.Error())
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			if isInList {
+				break
+			}
+			time.Sleep(1 * time.Millisecond)
+		}
+		if !isInList {
+			// discard
+			return
+		}
 	}
 
 	writer, err := this.parentStorage.OpenFlushWriter(key, item.ExpiresAt, item.Status, len(item.HeaderValue), int64(len(item.BodyValue)))

@@ -1,26 +1,29 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches
 
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"strconv"
 
+	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 	"github.com/iwind/TeaGo/types"
 )
 
 // PartialRanges 内容分区范围定义
 type PartialRanges struct {
-	Version  int        `json:"version"`  // 版本号
-	Ranges   [][2]int64 `json:"ranges"`   // 范围
-	BodySize int64      `json:"bodySize"` // 总长度
+	Version    int        `json:"version"`    // 版本号
+	Ranges     [][2]int64 `json:"ranges"`     // 范围
+	BodySize   int64      `json:"bodySize"`   // 总长度
+	ContentMD5 string     `json:"contentMD5"` // 内容md5
 }
 
 // NewPartialRanges 获取新对象
 func NewPartialRanges(expiresAt int64) *PartialRanges {
 	return &PartialRanges{
 		Ranges:  [][2]int64{},
-		Version: 1,
+		Version: 2,
 	}
 }
 
@@ -45,6 +48,8 @@ func NewPartialRangesFromData(data []byte) (*PartialRanges, error) {
 				if commaIndex > 0 {
 					rs.Ranges = append(rs.Ranges, [2]int64{types.Int64(line[colonIndex+1 : commaIndex]), types.Int64(line[commaIndex+1:])})
 				}
+			case "m": // Content-MD5
+				rs.ContentMD5 = string(line[colonIndex+1:])
 			}
 		}
 		data = data[index+1:]
@@ -69,7 +74,7 @@ func NewPartialRangesFromJSON(data []byte) (*PartialRanges, error) {
 
 // NewPartialRangesFromFile 从文件中加载范围信息
 func NewPartialRangesFromFile(path string) (*PartialRanges, error) {
-	data, err := os.ReadFile(path)
+	data, err := SharedPartialRangesQueue.Get(path)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +106,6 @@ func (this *PartialRanges) Add(begin int64, end int64) {
 	}
 
 	// insert
-	// TODO 将来使用二分法改进
 	var index = -1
 	for i, r := range this.Ranges {
 		if r[0] > begin || (r[0] == begin && r[1] >= end) {
@@ -127,7 +131,6 @@ func (this *PartialRanges) Contains(begin int64, end int64) bool {
 		return false
 	}
 
-	// TODO 使用二分法查找改进性能
 	for _, r2 := range this.Ranges {
 		if r2[0] <= begin && r2[1] >= end {
 			return true
@@ -143,7 +146,6 @@ func (this *PartialRanges) Nearest(begin int64, end int64) (r [2]int64, ok bool)
 		return
 	}
 
-	// TODO 使用二分法查找改进性能
 	for _, r2 := range this.Ranges {
 		if r2[0] <= begin && r2[1] > begin {
 			r = [2]int64{begin, this.min(end, r2[1])}
@@ -154,10 +156,28 @@ func (this *PartialRanges) Nearest(begin int64, end int64) (r [2]int64, ok bool)
 	return
 }
 
+// FindRangeAtPosition 查找在某个位置上的范围
+func (this *PartialRanges) FindRangeAtPosition(position int64) (r rangeutils.Range, ok bool) {
+	if len(this.Ranges) == 0 || position < 0 {
+		return
+	}
+
+	for _, r2 := range this.Ranges {
+		if r2[0] <= position && r2[1] > position {
+			return [2]int64{position, r2[1]}, true
+		}
+	}
+
+	return
+}
+
 // 转换为字符串
 func (this *PartialRanges) String() string {
 	var s = "v:" + strconv.Itoa(this.Version) + "\n" + // version
 		"b:" + this.formatInt64(this.BodySize) + "\n" // bodySize
+	if len(this.ContentMD5) > 0 {
+		s += "m:" + this.ContentMD5 + "\n" // Content-MD5
+	}
 	for _, r := range this.Ranges {
 		s += "r:" + this.formatInt64(r[0]) + "," + this.formatInt64(r[1]) + "\n" // range
 	}
@@ -171,7 +191,8 @@ func (this *PartialRanges) Bytes() []byte {
 
 // WriteToFile 写入到文件中
 func (this *PartialRanges) WriteToFile(path string) error {
-	return os.WriteFile(path, this.Bytes(), 0666)
+	SharedPartialRangesQueue.Put(path, this.Bytes())
+	return nil
 }
 
 // Max 获取最大位置
@@ -185,6 +206,11 @@ func (this *PartialRanges) Max() int64 {
 // Reset 重置范围信息
 func (this *PartialRanges) Reset() {
 	this.Ranges = [][2]int64{}
+}
+
+// IsCompleted 是否已下载完整
+func (this *PartialRanges) IsCompleted() bool {
+	return len(this.Ranges) == 1 && this.Ranges[0][0] == 0 && this.Ranges[0][1] == this.BodySize-1
 }
 
 func (this *PartialRanges) merge(index int) {

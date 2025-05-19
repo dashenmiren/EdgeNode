@@ -1,9 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package agents
 
 import (
 	"sync"
 
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 )
 
 type IPCacheMap struct {

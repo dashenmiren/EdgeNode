@@ -1,6 +1,10 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 	"time"
@@ -166,8 +170,13 @@ func TestPartialRanges_Encode_String(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		r.Ranges = append(r.Ranges, [2]int64{int64(i * 100), int64(i*100 + 100)})
 	}
+
+	var sum = md5.Sum([]byte("123456"))
+	r.ContentMD5 = base64.StdEncoding.EncodeToString(sum[:])
+
 	var before = time.Now()
 	var data = r.String()
+	t.Log(data)
 	t.Log(time.Since(before).Seconds()*1000, "ms")
 	t.Log(len(data))
 

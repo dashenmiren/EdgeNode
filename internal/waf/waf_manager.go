@@ -70,6 +70,20 @@ func (this *WAFManager) ConvertWAF(policy *firewallconfigs.HTTPFirewallPolicy) (
 
 	// inbound
 	if policy.Inbound != nil && policy.Inbound.IsOn {
+		// ip lists
+		if policy.Inbound.AllowListRef != nil && policy.Inbound.AllowListRef.IsOn && policy.Inbound.AllowListRef.ListId > 0 {
+			w.AllowListId = policy.Inbound.AllowListRef.ListId
+		}
+
+		if policy.Inbound.DenyListRef != nil && policy.Inbound.DenyListRef.IsOn && policy.Inbound.DenyListRef.ListId > 0 {
+			w.DenyListId = policy.Inbound.DenyListRef.ListId
+		}
+
+		if policy.Inbound.GreyListRef != nil && policy.Inbound.GreyListRef.IsOn && policy.Inbound.GreyListRef.ListId > 0 {
+			w.GreyListId = policy.Inbound.GreyListRef.ListId
+		}
+
+		// groups
 		for _, group := range policy.Inbound.Groups {
 			g := &RuleGroup{
 				Id:          group.Id,
@@ -82,14 +96,15 @@ func (this *WAFManager) ConvertWAF(policy *firewallconfigs.HTTPFirewallPolicy) (
 
 			// rule sets
 			for _, set := range group.Sets {
-				s := &RuleSet{
-					Id:          set.Id,
-					Code:        set.Code,
-					IsOn:        set.IsOn,
-					Name:        set.Name,
-					Description: set.Description,
-					Connector:   set.Connector,
-					IgnoreLocal: set.IgnoreLocal,
+				var s = &RuleSet{
+					Id:                 set.Id,
+					Code:               set.Code,
+					IsOn:               set.IsOn,
+					Name:               set.Name,
+					Description:        set.Description,
+					Connector:          set.Connector,
+					IgnoreLocal:        set.IgnoreLocal,
+					IgnoreSearchEngine: set.IgnoreSearchEngine,
 				}
 				for _, a := range set.Actions {
 					s.AddAction(a.Code, a.Options)
@@ -139,14 +154,15 @@ func (this *WAFManager) ConvertWAF(policy *firewallconfigs.HTTPFirewallPolicy) (
 
 			// rule sets
 			for _, set := range group.Sets {
-				s := &RuleSet{
-					Id:          set.Id,
-					Code:        set.Code,
-					IsOn:        set.IsOn,
-					Name:        set.Name,
-					Description: set.Description,
-					Connector:   set.Connector,
-					IgnoreLocal: set.IgnoreLocal,
+				var s = &RuleSet{
+					Id:                 set.Id,
+					Code:               set.Code,
+					IsOn:               set.IsOn,
+					Name:               set.Name,
+					Description:        set.Description,
+					Connector:          set.Connector,
+					IgnoreLocal:        set.IgnoreLocal,
+					IgnoreSearchEngine: set.IgnoreSearchEngine,
 				}
 
 				for _, a := range set.Actions {
@@ -177,11 +193,12 @@ func (this *WAFManager) ConvertWAF(policy *firewallconfigs.HTTPFirewallPolicy) (
 	// block action
 	if policy.BlockOptions != nil {
 		w.DefaultBlockAction = &BlockAction{
-			StatusCode: policy.BlockOptions.StatusCode,
-			Body:       policy.BlockOptions.Body,
-			URL:        policy.BlockOptions.URL,
-			Timeout:    policy.BlockOptions.Timeout,
-			TimeoutMax: policy.BlockOptions.TimeoutMax,
+			StatusCode:        policy.BlockOptions.StatusCode,
+			Body:              policy.BlockOptions.Body,
+			URL:               policy.BlockOptions.URL,
+			Timeout:           policy.BlockOptions.Timeout,
+			TimeoutMax:        policy.BlockOptions.TimeoutMax,
+			FailBlockScopeAll: policy.BlockOptions.FailBlockScopeAll,
 		}
 	}
 
@@ -212,6 +229,33 @@ func (this *WAFManager) ConvertWAF(policy *firewallconfigs.HTTPFirewallPolicy) (
 			UIBody:            policy.CaptchaOptions.UIBody,
 			Lang:              policy.CaptchaOptions.Lang,
 			GeeTestConfig:     &policy.CaptchaOptions.GeeTestConfig,
+		}
+	}
+
+	// get302
+	if policy.Get302Options != nil {
+		w.DefaultGet302Action = &Get302Action{
+			Life:  policy.Get302Options.Life,
+			Scope: policy.Get302Options.Scope,
+		}
+	}
+
+	// post307
+	if policy.Post307Options != nil {
+		w.DefaultPost307Action = &Post307Action{
+			Life:  policy.Post307Options.Life,
+			Scope: policy.Post307Options.Scope,
+		}
+	}
+
+	// jscookie
+	if policy.JSCookieOptions != nil {
+		w.DefaultJSCookieAction = &JSCookieAction{
+			Life:              policy.JSCookieOptions.Life,
+			MaxFails:          policy.JSCookieOptions.MaxFails,
+			FailBlockTimeout:  policy.JSCookieOptions.FailBlockTimeout,
+			Scope:             policy.JSCookieOptions.Scope,
+			FailBlockScopeAll: policy.JSCookieOptions.FailBlockScopeAll,
 		}
 	}
 

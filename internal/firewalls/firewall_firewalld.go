@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package firewalls
 
 import (
@@ -6,9 +8,9 @@ import (
 	"time"
 
 	"github.com/dashenmiren/EdgeNode/internal/conns"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/types"
 )
 

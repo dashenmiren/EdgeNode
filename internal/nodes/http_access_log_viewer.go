@@ -1,9 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -93,7 +96,7 @@ func (this *HTTPAccessLogViewer) Send(accessLog *pb.HTTPAccessLog) {
 
 	for _, conn := range conns {
 		// ignore error
-		_, _ = conn.Write([]byte(accessLog.RemoteAddr + " [" + accessLog.TimeLocal + "] \"" + accessLog.RequestMethod + " " + accessLog.Scheme + "://" + accessLog.Host + accessLog.RequestURI + " " + accessLog.Proto + "\" " + types.String(accessLog.Status) + " - " + fmt.Sprintf("%.2fms", accessLog.RequestTime*1000) + "\n"))
+		_, _ = conn.Write([]byte(accessLog.RemoteAddr + " [" + accessLog.TimeLocal + "] \"" + accessLog.RequestMethod + " " + accessLog.Scheme + "://" + accessLog.Host + accessLog.RequestURI + " " + accessLog.Proto + "\" " + types.String(accessLog.Status) + " " + types.String(accessLog.BytesSent) + " " + strconv.Quote(accessLog.Referer) + " " + strconv.Quote(accessLog.UserAgent) + " - " + fmt.Sprintf("%.2fms", accessLog.RequestTime*1000) + "\n"))
 	}
 }
 

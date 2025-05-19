@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package waf
 
 import (
@@ -61,8 +63,8 @@ type IPList struct {
 	id     uint64
 	locker sync.RWMutex
 
-	lastIP   string // 加入到 recordIPTaskChan 之前尽可能去重
-	lastTime int64
+	lastIPInfo string // 加入到 recordIPTaskChan 之前尽可能去重
+	lastTime   int64
 }
 
 // NewIPList 获取新对象
@@ -88,7 +90,7 @@ func (this *IPList) Add(ipType string, scope firewallconfigs.FirewallScope, serv
 	switch scope {
 	case firewallconfigs.FirewallScopeGlobal:
 		ip = "*@" + ip + "@" + ipType
-	case firewallconfigs.FirewallScopeService:
+	case firewallconfigs.FirewallScopeServer:
 		ip = types.String(serverId) + "@" + ip + "@" + ipType
 	default:
 		ip = "*@" + ip + "@" + ipType
@@ -126,16 +128,16 @@ func (this *IPList) RecordIP(ipType string,
 	if this.listType == IPListTypeDeny {
 		// 作用域
 		var scopeServerId int64
-		if scope == firewallconfigs.FirewallScopeService {
+		if scope == firewallconfigs.FirewallScopeServer {
 			scopeServerId = serverId
 		}
 
 		// 加入队列等待上传
-		if this.lastIP != ip || fasttime.Now().Unix()-this.lastTime > 3 /** 3秒外才允许重复添加 **/ {
+		if this.lastIPInfo != ip+"@"+ipType || fasttime.Now().Unix()-this.lastTime > 3 /** 3秒外才允许重复添加 **/ {
 			select {
 			case recordIPTaskChan <- &recordIPTask{
 				ip:                            ip,
-				listId:                        firewallconfigs.GlobalListId,
+				listId:                        firewallconfigs.GlobalBlackListId,
 				expiresAt:                     expiresAt,
 				level:                         firewallconfigs.DefaultEventLevel,
 				serverId:                      scopeServerId,
@@ -145,7 +147,7 @@ func (this *IPList) RecordIP(ipType string,
 				sourceHTTPFirewallRuleSetId:   setId,
 				reason:                        reason,
 			}:
-				this.lastIP = ip
+				this.lastIPInfo = ip + "@" + ipType
 				this.lastTime = fasttime.Now().Unix()
 			default:
 			}
@@ -166,7 +168,7 @@ func (this *IPList) Contains(ipType string, scope firewallconfigs.FirewallScope,
 	switch scope {
 	case firewallconfigs.FirewallScopeGlobal:
 		ip = "*@" + ip + "@" + ipType
-	case firewallconfigs.FirewallScopeService:
+	case firewallconfigs.FirewallScopeServer:
 		ip = types.String(serverId) + "@" + ip + "@" + ipType
 	default:
 		ip = "*@" + ip + "@" + ipType
@@ -183,7 +185,7 @@ func (this *IPList) ContainsExpires(ipType string, scope firewallconfigs.Firewal
 	switch scope {
 	case firewallconfigs.FirewallScopeGlobal:
 		ip = "*@" + ip + "@" + ipType
-	case firewallconfigs.FirewallScopeService:
+	case firewallconfigs.FirewallScopeServer:
 		ip = types.String(serverId) + "@" + ip + "@" + ipType
 	default:
 		ip = "*@" + ip + "@" + ipType

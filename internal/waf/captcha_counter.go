@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package waf
 
 import (
@@ -19,7 +21,7 @@ const (
 )
 
 // CaptchaIncreaseFails 增加Captcha失败次数，以便后续操作
-func CaptchaIncreaseFails(req requests.Request, actionConfig *CaptchaAction, policyId int64, groupId int64, setId int64, pageCode CaptchaPageCode) (goNext bool) {
+func CaptchaIncreaseFails(req requests.Request, actionConfig *CaptchaAction, policyId int64, groupId int64, setId int64, pageCode CaptchaPageCode, useLocalFirewall bool) (goNext bool) {
 	var maxFails = actionConfig.MaxFails
 	var failBlockTimeout = actionConfig.FailBlockTimeout
 	if maxFails > 0 && failBlockTimeout > 0 {
@@ -28,7 +30,7 @@ func CaptchaIncreaseFails(req requests.Request, actionConfig *CaptchaAction, pol
 		}
 		var countFails = counters.SharedCounter.IncreaseKey(CaptchaCacheKey(req, pageCode), 300)
 		if int(countFails) >= maxFails {
-			SharedIPBlackList.RecordIP(IPTypeAll, firewallconfigs.FirewallScopeService, req.WAFServerId(), req.WAFRemoteIP(), time.Now().Unix()+int64(failBlockTimeout), policyId, true, groupId, setId, "CAPTCHA验证连续失败超过"+types.String(maxFails)+"次")
+			SharedIPBlackList.RecordIP(IPTypeAll, firewallconfigs.FirewallScopeServer, req.WAFServerId(), req.WAFRemoteIP(), time.Now().Unix()+int64(failBlockTimeout), policyId, useLocalFirewall, groupId, setId, "CAPTCHA验证连续失败超过"+types.String(maxFails)+"次")
 			return false
 		}
 	}

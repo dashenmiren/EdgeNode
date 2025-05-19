@@ -7,9 +7,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/cespare/xxhash"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/cespare/xxhash/v2"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/maps"
 )

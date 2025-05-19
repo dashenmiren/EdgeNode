@@ -114,7 +114,7 @@ func (this *ServiceManager) installInitService(exePath string, args []string) er
 // install systemd service
 func (this *ServiceManager) installSystemdService(systemd, exePath string, args []string) error {
 	var shortName = teaconst.SystemdServiceName
-	var longName = "GoCDN Node" // TODO 将来可以修改
+	var longName = "GoEdge Node" // TODO 将来可以修改
 
 	var startCmd = exePath + " daemon"
 	bashPath, _ := executils.LookPath("bash")

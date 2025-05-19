@@ -1,3 +1,5 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package connutils
 
 import (
@@ -5,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 )
 
 // 记录不需要带宽统计的连接

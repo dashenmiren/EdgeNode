@@ -1,3 +1,5 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches
 
 import (
@@ -5,9 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ttlcache"
 	"github.com/iwind/TeaGo/types"
 )
 
@@ -19,19 +24,31 @@ type KVFileList struct {
 
 	onAdd    func(item *Item)
 	onRemove func(item *Item)
+
+	memCache *ttlcache.Cache[int64]
 }
 
 func NewKVFileList(dir string) *KVFileList {
+	var memGB = memutils.SystemMemoryGB()
+	if memGB <= 0 {
+		memGB = 1
+	}
+	var maxCachePieces = 32
+	var maxCacheItems = memGB << 15
+
+	var memCache = ttlcache.NewCache[int64](ttlcache.NewPiecesOption(maxCachePieces), ttlcache.NewMaxItemsOption(maxCacheItems))
+
 	dir = strings.TrimSuffix(dir, "/")
 
 	var stores = [countKVStores]*KVListFileStore{}
 	for i := 0; i < countKVStores; i++ {
-		stores[i] = NewKVListFileStore(dir + "/db-" + types.String(i) + ".store")
+		stores[i] = NewKVListFileStore(dir+"/db-"+types.String(i)+".store", memCache)
 	}
 
 	return &KVFileList{
-		dir:    dir,
-		stores: stores,
+		dir:      dir,
+		stores:   stores,
+		memCache: memCache,
 	}
 }
 
@@ -58,7 +75,7 @@ func (this *KVFileList) Init() error {
 
 // Reset 重置数据
 func (this *KVFileList) Reset() error {
-	// do nothing
+	this.memCache.Clean()
 	return nil
 }
 
@@ -73,16 +90,31 @@ func (this *KVFileList) Add(hash string, item *Item) error {
 		this.onAdd(item)
 	}
 
+	if item.ExpiresAt > 0 {
+		this.memCache.Write(hash, item.HeaderSize+item.BodySize, min(item.ExpiresAt, fasttime.Now().Unix()+3600))
+	}
+
 	return nil
 }
 
 // Exist 检查内容是否存在
-func (this *KVFileList) Exist(hash string) (bool, error) {
+func (this *KVFileList) Exist(hash string) (bool, int64, error) {
+	// read from cache
+	var cacheItem = this.memCache.Read(hash)
+	if cacheItem != nil {
+		return true, cacheItem.Value, nil
+	}
+
 	return this.getStore(hash).ExistItem(hash)
 }
 
 // ExistQuick 快速检查内容是否存在
 func (this *KVFileList) ExistQuick(hash string) (bool, error) {
+	// read from cache
+	if this.memCache.Read(hash) != nil {
+		return true, nil
+	}
+
 	return this.getStore(hash).ExistQuickItem(hash)
 }
 
@@ -149,6 +181,9 @@ func (this *KVFileList) Remove(hash string) error {
 		this.onRemove(nil)
 	}
 
+	// remove from cache
+	this.memCache.Delete(hash)
+
 	return nil
 }
 
@@ -203,6 +238,9 @@ func (this *KVFileList) CleanAll() error {
 		})
 	}
 	group.Wait()
+
+	this.memCache.Clean()
+
 	return lastErr
 }
 
@@ -286,6 +324,9 @@ func (this *KVFileList) Close() error {
 		})
 	}
 	group.Wait()
+
+	this.memCache.Destroy()
+
 	return lastErr
 }
 

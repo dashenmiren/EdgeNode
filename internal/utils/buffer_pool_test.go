@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package utils_test
 
 import (
@@ -40,6 +42,32 @@ func BenchmarkNewBufferPool2(b *testing.B) {
 		for pb.Next() {
 			var buffer = pool.Get()
 			buffer.Write(data)
+			pool.Put(buffer)
+		}
+	})
+}
+
+func BenchmarkNewBufferPool3(b *testing.B) {
+	var pool = utils.NewBufferPool()
+	var dataString = strings.Repeat("Hello", 1024)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var buffer = pool.Get()
+			buffer.Write([]byte(dataString))
+			pool.Put(buffer)
+		}
+	})
+}
+
+func BenchmarkNewBufferPool4(b *testing.B) {
+	var pool = utils.NewBufferPool()
+	var dataString = strings.Repeat("Hello", 1024)
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var buffer = pool.Get()
+			buffer.WriteString(dataString)
 			pool.Put(buffer)
 		}
 	})

@@ -1,11 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
 	"io"
 
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/klauspost/compress/zstd"
 )
 
 var sharedZSTDWriterPool *WriterPool
@@ -15,11 +15,7 @@ func init() {
 		return
 	}
 
-	var maxSize = utils.SystemMemoryGB() * 256
-	if maxSize == 0 {
-		maxSize = 256
-	}
-	sharedZSTDWriterPool = NewWriterPool(maxSize, int(zstd.SpeedBestCompression), func(writer io.Writer, level int) (Writer, error) {
-		return newZSTDWriter(writer, level)
+	sharedZSTDWriterPool = NewWriterPool(CalculatePoolSize(), func(writer io.Writer, level int) (Writer, error) {
+		return newZSTDWriter(writer)
 	})
 }

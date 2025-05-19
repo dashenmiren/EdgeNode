@@ -1,15 +1,18 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package agents
 
 import (
+	"os"
 	"sync"
 	"time"
 
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 )
 
@@ -32,7 +35,7 @@ type Manager struct {
 	ipMap  map[string]string // ip => agentCode
 	locker sync.RWMutex
 
-	db *DB
+	db DB
 
 	lastId int64
 }
@@ -43,7 +46,7 @@ func NewManager() *Manager {
 	}
 }
 
-func (this *Manager) SetDB(db *DB) {
+func (this *Manager) SetDB(db DB) {
 	this.db = db
 }
 
@@ -194,7 +197,14 @@ func (this *Manager) ContainsIP(ip string) bool {
 }
 
 func (this *Manager) loadDB() error {
-	var db = NewDB(Tea.Root + "/data/agents.db")
+	var sqlitePath = Tea.Root + "/data/agents.db"
+	_, sqliteErr := os.Stat(sqlitePath)
+	var db DB
+	if sqliteErr == nil || !teaconst.EnableKVCacheStore {
+		db = NewSQLiteDB(sqlitePath)
+	} else {
+		db = NewKVDB()
+	}
 	err := db.Init()
 	if err != nil {
 		return err

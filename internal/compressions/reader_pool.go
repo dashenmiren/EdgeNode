@@ -1,8 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
 	"io"
 )
+
+const maxReadHits = 1 << 20
 
 type ReaderPool struct {
 	c       chan Reader
@@ -47,6 +51,11 @@ func (this *ReaderPool) Get(parentReader io.Reader) (Reader, error) {
 }
 
 func (this *ReaderPool) Put(reader Reader) {
+	if reader.IncreaseHit() > maxReadHits {
+		// do nothing to discard it
+		return
+	}
+
 	select {
 	case this.c <- reader:
 	default:

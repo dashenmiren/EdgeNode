@@ -1,3 +1,5 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package injectionutils
 
 /*
@@ -13,9 +15,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/cespare/xxhash/v2"
 )
 
 func DetectXSSCache(input string, isStrict bool, cacheLife utils.CacheLife) bool {

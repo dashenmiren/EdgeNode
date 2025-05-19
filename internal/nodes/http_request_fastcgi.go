@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
@@ -205,9 +207,9 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 	this.writer.WriteHeader(resp.StatusCode)
 
 	// 输出到客户端
-	pool := this.bytePool(resp.ContentLength)
-	buf := pool.Get()
-	_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+	var pool = this.bytePool(resp.ContentLength)
+	var buf = pool.Get()
+	_, err = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
 	pool.Put(buf)
 
 	closeErr := resp.Body.Close()

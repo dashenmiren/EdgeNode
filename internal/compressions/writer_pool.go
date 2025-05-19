@@ -1,38 +1,61 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
 	"io"
+	"time"
+
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 )
 
+const maxWriterHits = 1 << 20
+
+var isBusy = false
+
+func init() {
+	if !teaconst.IsMain {
+		return
+	}
+
+	goman.New(func() {
+		var ticker = time.NewTicker(100 * time.Millisecond)
+		for range ticker.C {
+			if isBusy {
+				isBusy = false
+			}
+		}
+	})
+}
+
+func IsBusy() bool {
+	return isBusy
+}
+
 type WriterPool struct {
-	m       map[int]chan Writer // level => chan Writer
+	c       chan Writer // level => chan Writer
 	newFunc func(writer io.Writer, level int) (Writer, error)
 }
 
-func NewWriterPool(maxSize int, maxLevel int, newFunc func(writer io.Writer, level int) (Writer, error)) *WriterPool {
+func NewWriterPool(maxSize int, newFunc func(writer io.Writer, level int) (Writer, error)) *WriterPool {
 	if maxSize <= 0 {
 		maxSize = 1024
 	}
 
-	var m = map[int]chan Writer{}
-	for i := 0; i <= maxLevel; i++ {
-		m[i] = make(chan Writer, maxSize)
-	}
-
 	return &WriterPool{
-		m:       m,
+		c:       make(chan Writer, maxSize),
 		newFunc: newFunc,
 	}
 }
 
 func (this *WriterPool) Get(parentWriter io.Writer, level int) (Writer, error) {
-	c, ok := this.m[level]
-	if !ok {
-		c = this.m[0]
+	if isBusy {
+		return nil, ErrIsBusy
 	}
 
 	select {
-	case writer := <-c:
+	case writer := <-this.c:
 		writer.Reset(parentWriter)
 		writer.ResetFinish()
 		return writer, nil
@@ -47,13 +70,14 @@ func (this *WriterPool) Get(parentWriter io.Writer, level int) (Writer, error) {
 }
 
 func (this *WriterPool) Put(writer Writer) {
-	var level = writer.Level()
-	c, ok := this.m[level]
-	if !ok {
-		c = this.m[0]
+	if writer.IncreaseHit() > maxWriterHits {
+		// do nothing to discard it
+		return
 	}
+
 	select {
-	case c <- writer:
+	case this.c <- writer:
 	default:
+		isBusy = true
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
 	"github.com/iwind/TeaGo/Tea"
 )
 
@@ -69,11 +70,11 @@ func (this *HTTPRequest) doShutdown() {
 			this.ProcessResponseHeaders(this.writer.Header(), http.StatusOK)
 			this.writer.WriteHeader(http.StatusOK)
 		}
-		var buf = utils.BytePool1k.Get()
-		_, err = utils.CopyWithFilter(this.writer, fp, buf, func(p []byte) []byte {
+		var buf = bytepool.Pool1k.Get()
+		_, err = utils.CopyWithFilter(this.writer, fp, buf.Bytes, func(p []byte) []byte {
 			return []byte(this.Format(string(p)))
 		})
-		utils.BytePool1k.Put(buf)
+		bytepool.Pool1k.Put(buf)
 		if err != nil {
 			if !this.canIgnore(err) {
 				remotelogs.Warn("HTTP_REQUEST_SHUTDOWN", "write to client failed: "+err.Error())

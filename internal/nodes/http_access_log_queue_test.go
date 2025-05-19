@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes_test
 
 import (
@@ -120,7 +122,7 @@ func TestHTTPAccessLogQueue_Memory(t *testing.T) {
 	var accessLogs = []*pb.HTTPAccessLog{}
 	for i := 0; i < 20_000; i++ {
 		accessLogs = append(accessLogs, &pb.HTTPAccessLog{
-			RequestPath: "https://google.com/hello/world",
+			RequestPath: "https://goedge.cn/hello/world",
 		})
 	}
 
@@ -132,7 +134,7 @@ func TestHTTPAccessLogQueue_Memory(t *testing.T) {
 		var accessLogs1 = []*pb.HTTPAccessLog{}
 		for i := 0; i < 2_000_000; i++ {
 			accessLogs1 = append(accessLogs1, &pb.HTTPAccessLog{
-				RequestPath: "https://google.com/hello/world",
+				RequestPath: "https://goedge.cn/hello/world",
 			})
 		}
 		_ = accessLogs1

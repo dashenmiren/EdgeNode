@@ -8,6 +8,8 @@ import (
 )
 
 type MemoryReader struct {
+	BaseReader
+
 	item *MemoryItem
 
 	offset int

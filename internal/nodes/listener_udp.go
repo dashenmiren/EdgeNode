@@ -8,10 +8,13 @@ import (
 	"time"
 
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/firewalls"
+	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/stats"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/types"
 	"github.com/pires/go-proxyproto"
 	"golang.org/x/net/ipv4"
@@ -165,7 +168,7 @@ func (this *UDPListener) servePacketListener(listener UDPPacketListener) error {
 		}
 	})
 
-	var buffer = make([]byte, 4*1024)
+	var buffer = make([]byte, 4<<10)
 	for {
 		if this.isClosed {
 			return nil
@@ -182,6 +185,16 @@ func (this *UDPListener) servePacketListener(listener UDPPacketListener) error {
 				return nil
 			}
 			return err
+		}
+
+		// 检查IP名单
+		clientIP, _, parseHostErr := net.SplitHostPort(clientAddr.String())
+		if parseHostErr == nil {
+			ok, _, expiresAt := iplibrary.AllowIP(clientIP, firstServer.Id)
+			if !ok {
+				firewalls.DropTemporaryTo(clientIP, expiresAt)
+				continue
+			}
 		}
 
 		if n > 0 {
@@ -360,9 +373,9 @@ type UDPConn struct {
 	isClosed      bool
 }
 
-func NewUDPConn(server *serverconfigs.ServerConfig, addr net.Addr, proxyListener UDPPacketListener, cm any, serverConn *net.UDPConn) *UDPConn {
+func NewUDPConn(server *serverconfigs.ServerConfig, clientAddr net.Addr, proxyListener UDPPacketListener, cm any, serverConn *net.UDPConn) *UDPConn {
 	var conn = &UDPConn{
-		addr:          addr,
+		addr:          clientAddr,
 		proxyListener: proxyListener,
 		serverConn:    serverConn,
 		activatedAt:   time.Now().Unix(),
@@ -372,6 +385,12 @@ func NewUDPConn(server *serverconfigs.ServerConfig, addr net.Addr, proxyListener
 	// 统计
 	if server != nil {
 		stats.SharedTrafficStatManager.Add(server.UserId, server.Id, "", 0, 0, 1, 0, 0, 0, 0, server.ShouldCheckTrafficLimit(), server.PlanId())
+
+		// DAU统计
+		clientIP, _, parseErr := net.SplitHostPort(clientAddr.String())
+		if parseErr == nil {
+			stats.SharedDAUManager.AddIP(server.Id, clientIP)
+		}
 	}
 
 	// 处理ControlMessage
@@ -383,17 +402,17 @@ func NewUDPConn(server *serverconfigs.ServerConfig, addr net.Addr, proxyListener
 	}
 
 	goman.New(func() {
-		var buffer = utils.BytePool4k.Get()
+		var buf = bytepool.Pool4k.Get()
 		defer func() {
-			utils.BytePool4k.Put(buffer)
+			bytepool.Pool4k.Put(buf)
 		}()
 
 		for {
-			n, err := serverConn.Read(buffer)
+			n, err := serverConn.Read(buf.Bytes)
 			if n > 0 {
 				conn.activatedAt = time.Now().Unix()
 
-				_, writingErr := proxyListener.WriteTo(buffer[:n], cm, addr)
+				_, writingErr := proxyListener.WriteTo(buf.Bytes[:n], cm, clientAddr)
 				if writingErr != nil {
 					conn.isOk = false
 					break

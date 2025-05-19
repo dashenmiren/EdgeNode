@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dashenmiren/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/utils/re"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/rands"

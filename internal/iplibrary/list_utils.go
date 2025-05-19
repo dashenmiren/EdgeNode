@@ -1,8 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package iplibrary
 
 import (
+	"encoding/hex"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/iputils"
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/Tea"
 )
 
@@ -22,25 +26,25 @@ func AllowIP(ip string, serverId int64) (canGoNext bool, inAllowList bool, expir
 		}
 	}
 
-	var ipLong = utils.IP2Long(ip)
-	if ipLong == 0 {
+	var ipBytes = iputils.ToBytes(ip)
+	if IsZero(ipBytes) {
 		return false, false, 0
 	}
 
 	// check white lists
-	if GlobalWhiteIPList.Contains(ipLong) {
+	if GlobalWhiteIPList.Contains(ipBytes) {
 		return true, true, 0
 	}
 
 	if serverId > 0 {
 		var list = SharedServerListManager.FindWhiteList(serverId, false)
-		if list != nil && list.Contains(ipLong) {
+		if list != nil && list.Contains(ipBytes) {
 			return true, true, 0
 		}
 	}
 
 	// check black lists
-	expiresAt, ok := GlobalBlackIPList.ContainsExpires(ipLong)
+	expiresAt, ok := GlobalBlackIPList.ContainsExpires(ipBytes)
 	if ok {
 		return false, false, expiresAt
 	}
@@ -48,7 +52,7 @@ func AllowIP(ip string, serverId int64) (canGoNext bool, inAllowList bool, expir
 	if serverId > 0 {
 		var list = SharedServerListManager.FindBlackList(serverId, false)
 		if list != nil {
-			expiresAt, ok = list.ContainsExpires(ipLong)
+			expiresAt, ok = list.ContainsExpires(ipBytes)
 			if ok {
 				return false, false, expiresAt
 			}
@@ -60,13 +64,13 @@ func AllowIP(ip string, serverId int64) (canGoNext bool, inAllowList bool, expir
 
 // IsInWhiteList 检查IP是否在白名单中
 func IsInWhiteList(ip string) bool {
-	var ipLong = utils.IP2Long(ip)
-	if ipLong == 0 {
+	var ipBytes = iputils.ToBytes(ip)
+	if IsZero(ipBytes) {
 		return false
 	}
 
 	// check white lists
-	return GlobalWhiteIPList.Contains(ipLong)
+	return GlobalWhiteIPList.Contains(ipBytes)
 }
 
 // AllowIPStrings 检查一组IP是否被允许访问
@@ -81,4 +85,16 @@ func AllowIPStrings(ipStrings []string, serverId int64) bool {
 		}
 	}
 	return true
+}
+
+func IsZero(ipBytes []byte) bool {
+	return len(ipBytes) == 0
+}
+
+func ToHex(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+
+	return hex.EncodeToString(b)
 }

@@ -9,10 +9,10 @@ import (
 
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/stats"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/types"
 	"github.com/pires/go-proxyproto"
 )
@@ -146,6 +146,12 @@ func (this *TCPListener) handleConn(server *serverconfigs.ServerConfig, conn net
 		stats.SharedTrafficStatManager.Add(server.UserId, server.Id, "", 0, 0, 1, 0, 0, 0, 0, server.ShouldCheckTrafficLimit(), server.PlanId())
 	}
 
+	// DAU统计
+	clientIP, _, parseErr := net.SplitHostPort(conn.RemoteAddr().String())
+	if parseErr == nil {
+		stats.SharedDAUManager.AddIP(server.Id, clientIP)
+	}
+
 	originConn, err := this.connectOrigin(server.Id, serverName, server.ReverseProxy, conn.RemoteAddr().String())
 	if err != nil {
 		_ = conn.Close()
@@ -183,14 +189,14 @@ func (this *TCPListener) handleConn(server *serverconfigs.ServerConfig, conn net
 
 	// 从源站读取
 	goman.New(func() {
-		var originBuffer = utils.BytePool16k.Get()
+		var originBuf = bytepool.Pool16k.Get()
 		defer func() {
-			utils.BytePool16k.Put(originBuffer)
+			bytepool.Pool16k.Put(originBuf)
 		}()
 		for {
-			n, err := originConn.Read(originBuffer)
+			n, err := originConn.Read(originBuf.Bytes)
 			if n > 0 {
-				_, err = conn.Write(originBuffer[:n])
+				_, err = conn.Write(originBuf.Bytes[:n])
 				if err != nil {
 					closer()
 					break
@@ -209,9 +215,9 @@ func (this *TCPListener) handleConn(server *serverconfigs.ServerConfig, conn net
 	})
 
 	// 从客户端读取
-	var clientBuffer = utils.BytePool16k.Get()
+	var clientBuf = bytepool.Pool16k.Get()
 	defer func() {
-		utils.BytePool16k.Put(clientBuffer)
+		bytepool.Pool16k.Put(clientBuf)
 	}()
 	for {
 		// 是否已达到流量限制
@@ -220,9 +226,9 @@ func (this *TCPListener) handleConn(server *serverconfigs.ServerConfig, conn net
 			return nil
 		}
 
-		n, err := conn.Read(clientBuffer)
+		n, err := conn.Read(clientBuf.Bytes)
 		if n > 0 {
-			_, err = originConn.Write(clientBuffer[:n])
+			_, err = originConn.Write(clientBuf.Bytes[:n])
 			if err != nil {
 				break
 			}

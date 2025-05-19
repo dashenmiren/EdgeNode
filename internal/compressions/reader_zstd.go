@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
@@ -17,7 +19,7 @@ func NewZSTDReader(reader io.Reader) (Reader, error) {
 }
 
 func newZSTDReader(reader io.Reader) (Reader, error) {
-	r, err := zstd.NewReader(reader)
+	r, err := zstd.NewReader(reader, zstd.WithDecoderMaxWindow(256<<20))
 	if err != nil {
 		return nil, err
 	}

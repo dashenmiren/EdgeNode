@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/sizes"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
 	timeutil "github.com/iwind/TeaGo/utils/time"
@@ -42,7 +41,7 @@ func (this *LogWriter) Init() {
 	this.c = make(chan string, 1024)
 
 	// 异步写入文件
-	var maxFileSize = 128 * sizes.M // 文件最大尺寸，超出此尺寸则清空
+	var maxFileSize int64 = 128 << 20 // 文件最大尺寸，超出此尺寸则清空
 	if fp != nil {
 		goman.New(func() {
 			var totalSize int64 = 0

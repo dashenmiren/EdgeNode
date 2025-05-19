@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package teaconst
 
 import (
@@ -16,6 +18,12 @@ var (
 	NodeId       int64 = 0
 	NodeIdString       = ""
 	IsMain             = checkMain()
+
+	// Is301 是否 301 节点
+	Is301 = false
+
+	// BypassMobile 是否过移动
+	BypassMobile int32 = 0
 
 	GlobalProductName = nodeconfigs.DefaultProductName
 

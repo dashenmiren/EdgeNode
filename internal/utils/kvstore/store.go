@@ -1,3 +1,5 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore
 
 import (
@@ -5,11 +7,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/cockroachdb/pebble"
 	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/cockroachdb/pebble"
 	"github.com/iwind/TeaGo/Tea"
 )
 
@@ -18,8 +24,9 @@ const StoreSuffix = ".store"
 type Store struct {
 	name string
 
-	path  string
-	rawDB *pebble.DB
+	path   string
+	rawDB  *pebble.DB
+	locker *fsutils.Locker
 
 	isClosed bool
 
@@ -34,15 +41,41 @@ func NewStore(storeName string) (*Store, error) {
 		return nil, errors.New("invalid store name '" + storeName + "'")
 	}
 
-	var root = Tea.Root + "/data/stores"
-	_, err := os.Stat(root)
+	var path = Tea.Root + "/data/stores/" + storeName + StoreSuffix
+	_, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
-		_ = os.MkdirAll(root, 0777)
+		_ = os.MkdirAll(path, 0777)
 	}
 
 	return &Store{
-		name: storeName,
-		path: Tea.Root + "/data/stores/" + storeName + StoreSuffix,
+		name:   storeName,
+		path:   path,
+		locker: fsutils.NewLocker(path + "/.fs"),
+	}, nil
+}
+
+// NewStoreWithPath create store with path
+func NewStoreWithPath(path string) (*Store, error) {
+	if !strings.HasSuffix(path, ".store") {
+		return nil, errors.New("store path must contains a '.store' suffix")
+	}
+
+	_, err := os.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		_ = os.MkdirAll(path, 0777)
+	}
+
+	var storeName = filepath.Base(path)
+	storeName = strings.TrimSuffix(storeName, ".store")
+
+	if !IsValidName(storeName) {
+		return nil, errors.New("invalid store name '" + storeName + "'")
+	}
+
+	return &Store{
+		name:   storeName,
+		path:   path,
+		locker: fsutils.NewLocker(path + "/.fs"),
 	}, nil
 }
 
@@ -64,16 +97,16 @@ func OpenStoreDir(dir string, storeName string) (*Store, error) {
 		return nil, errors.New("invalid store name '" + storeName + "'")
 	}
 
-	_, err := os.Stat(dir)
+	var path = strings.TrimSuffix(dir, "/") + "/" + storeName + StoreSuffix
+	_, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
-		_ = os.MkdirAll(dir, 0777)
+		_ = os.MkdirAll(path, 0777)
 	}
 
-	dir = strings.TrimSuffix(dir, "/")
-
 	var store = &Store{
-		name: storeName,
-		path: dir + "/" + storeName + StoreSuffix,
+		name:   storeName,
+		path:   path,
+		locker: fsutils.NewLocker(path + "/.fs"),
 	}
 
 	err = store.Open()
@@ -83,12 +116,59 @@ func OpenStoreDir(dir string, storeName string) (*Store, error) {
 	return store, nil
 }
 
+var storeOnce = &sync.Once{}
+var defaultSore *Store
+
+func DefaultStore() (*Store, error) {
+	if defaultSore != nil {
+		return defaultSore, nil
+	}
+
+	var resultErr error
+	storeOnce.Do(func() {
+		store, err := NewStore("default")
+		if err != nil {
+			resultErr = fmt.Errorf("create default store failed: %w", err)
+			remotelogs.Error("KV", resultErr.Error())
+			return
+		}
+		err = store.Open()
+		if err != nil {
+			resultErr = fmt.Errorf("open default store failed: %w", err)
+			remotelogs.Error("KV", resultErr.Error())
+			return
+		}
+		defaultSore = store
+	})
+
+	return defaultSore, resultErr
+}
+
+func (this *Store) Path() string {
+	return this.path
+}
+
 func (this *Store) Open() error {
+	err := this.locker.Lock()
+	if err != nil {
+		return err
+	}
+
 	var opt = &pebble.Options{
 		Logger: NewLogger(),
 	}
 
-	// TODO 需要修改 BytesPerSync 和 WALBytesPerSync 等等默认参数
+	if fsutils.DiskIsFast() {
+		opt.BytesPerSync = 1 << 20
+	}
+
+	var memoryMB = memutils.SystemMemoryGB() * 2
+	if memoryMB > 256 {
+		memoryMB = 256
+	}
+	if memoryMB > 4 {
+		opt.MemTableSize = uint64(memoryMB) << 20
+	}
 
 	rawDB, err := pebble.Open(this.path, opt)
 	if err != nil {
@@ -97,10 +177,7 @@ func (this *Store) Open() error {
 	this.rawDB = rawDB
 
 	// events
-	events.OnKey(events.EventQuit, fmt.Sprintf("kvstore_%p", this), func() {
-		_ = this.Close()
-	})
-	events.OnKey(events.EventTerminated, fmt.Sprintf("kvstore_%p", this), func() {
+	events.OnClose(func() {
 		_ = this.Close()
 	})
 
@@ -120,13 +197,21 @@ func (this *Store) Delete(keyBytes []byte) error {
 }
 
 func (this *Store) NewDB(dbName string) (*DB, error) {
+	this.mu.Lock()
+	defer this.mu.Unlock()
+
+	// check existence
+	for _, db := range this.dbs {
+		if db.name == dbName {
+			return db, nil
+		}
+	}
+
+	// create new
 	db, err := NewDB(this, dbName)
 	if err != nil {
 		return nil, err
 	}
-
-	this.mu.Lock()
-	defer this.mu.Unlock()
 
 	this.dbs = append(this.dbs, db)
 	return db, nil
@@ -136,10 +221,16 @@ func (this *Store) RawDB() *pebble.DB {
 	return this.rawDB
 }
 
+func (this *Store) Flush() error {
+	return this.rawDB.Flush()
+}
+
 func (this *Store) Close() error {
 	if this.isClosed {
 		return nil
 	}
+
+	_ = this.locker.Release()
 
 	this.mu.Lock()
 	var lastErr error

@@ -1,9 +1,11 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package ratelimit
 
 import (
 	"sync"
 
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 )
 
 type Counter struct {

@@ -70,7 +70,7 @@ func TestContainsSameStrings(t *testing.T) {
 
 func TestToValidUTF8string(t *testing.T) {
 	for _, s := range []string{
-		"https://google.com/",
+		"https://goedge.cn/",
 		"提升mysql数据表写入速度",
 		"😆",
 		string([]byte{'a', 'b', 130, 131, 132, 133, 134, 'c'}),

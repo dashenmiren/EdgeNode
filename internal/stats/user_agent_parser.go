@@ -1,12 +1,14 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package stats
 
 import (
 	"sync"
 	"time"
 
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fnv"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 	"github.com/mssola/useragent"
 )
@@ -49,7 +51,7 @@ func NewUserAgentParser() *UserAgentParser {
 // 初始化
 func (this *UserAgentParser) init() {
 	var maxCacheItems = 10_000
-	var systemMemory = utils.SystemMemoryGB()
+	var systemMemory = memutils.SystemMemoryGB()
 	if systemMemory >= 16 {
 		maxCacheItems = 40_000
 	} else if systemMemory >= 8 {

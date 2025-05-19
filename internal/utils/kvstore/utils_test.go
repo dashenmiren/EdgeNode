@@ -1,3 +1,5 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore_test
 
 import (
@@ -10,7 +12,7 @@ import (
 )
 
 func TestRemoveDB(t *testing.T) {
-	err := kvstore.RemoveStore(Tea.Root + "/data/stores/test.store")
+	err := kvstore.RemoveStore(Tea.Root + "/data/stores/test2.store")
 	if err != nil {
 		t.Fatal(err)
 	}

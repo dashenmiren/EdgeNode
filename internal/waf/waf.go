@@ -27,9 +27,18 @@ type WAF struct {
 	UseLocalFirewall bool                            `yaml:"useLocalFirewall" json:"useLocalFirewall"`
 	SYNFlood         *firewallconfigs.SYNFloodConfig `yaml:"synFlood" json:"synFlood"`
 
-	DefaultBlockAction   *BlockAction
-	DefaultPageAction    *PageAction
-	DefaultCaptchaAction *CaptchaAction
+	// ip lists
+
+	AllowListId int64 `yaml:"allowListId" json:"allowListId"`
+	DenyListId  int64 `yaml:"denyListId" json:"denyListId"`
+	GreyListId  int64 `yaml:"greyListId" json:"greyListId"`
+
+	DefaultBlockAction    *BlockAction
+	DefaultPageAction     *PageAction
+	DefaultCaptchaAction  *CaptchaAction
+	DefaultJSCookieAction *JSCookieAction
+	DefaultPost307Action  *Post307Action
+	DefaultGet302Action   *Get302Action
 
 	hasInboundRules  bool
 	hasOutboundRules bool

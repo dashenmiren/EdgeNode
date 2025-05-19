@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
@@ -7,6 +9,11 @@ import (
 
 func (this *HTTPRequest) doCheckReferers() (shouldStop bool) {
 	if this.web.Referers == nil {
+		return
+	}
+
+	// 检查URL
+	if !this.web.Referers.MatchURL(this.URL()) {
 		return
 	}
 

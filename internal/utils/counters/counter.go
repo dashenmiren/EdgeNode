@@ -1,13 +1,16 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package counters
 
 import (
 	"sync"
 	"time"
 
-	"github.com/cespare/xxhash"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
+	"github.com/cespare/xxhash/v2"
 )
 
 const maxItemsPerGroup = 50_000
@@ -30,7 +33,7 @@ type Counter[T SupportedUIntType] struct {
 
 // NewCounter create new counter
 func NewCounter[T SupportedUIntType]() *Counter[T] {
-	var count = utils.SystemMemoryGB() * 8
+	var count = memutils.SystemMemoryGB() * 8
 	if count < 8 {
 		count = 8
 	}
@@ -55,11 +58,11 @@ func (this *Counter[T]) WithGC() *Counter[T] {
 		return this
 	}
 	this.gcTicker = time.NewTicker(1 * time.Second)
-	go func() {
+	goman.New(func() {
 		for range this.gcTicker.C {
 			this.GC()
 		}
-	}()
+	})
 
 	return this
 }

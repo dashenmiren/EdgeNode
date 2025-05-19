@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package dbs
 
 import (
@@ -13,7 +15,7 @@ import (
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	_ "github.com/mattn/go-sqlite3"
 )
 

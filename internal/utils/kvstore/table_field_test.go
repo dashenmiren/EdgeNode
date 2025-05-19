@@ -1,3 +1,5 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore_test
 
 import (
@@ -49,6 +51,10 @@ func (this *testCacheItemEncoder[T]) EncodeField(value T, fieldName string) ([]b
 func TestTable_AddField(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	err := table.AddFields("expiresAt")
 	if err != nil {
 		t.Fatal(err)
@@ -98,9 +104,13 @@ func TestTable_AddField_Many(t *testing.T) {
 		return
 	}
 
-	//runtime.GOMAXPROCS(1)
+	// runtime.GOMAXPROCS(1)
 
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	{
 		err := table.AddFields("expiresAt")
@@ -152,9 +162,13 @@ func TestTable_AddField_Delete_Many(t *testing.T) {
 		return
 	}
 
-	//runtime.GOMAXPROCS(1)
+	// runtime.GOMAXPROCS(1)
 
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	{
 		err := table.AddFields("expiresAt")
@@ -204,6 +218,10 @@ func TestTable_AddField_Delete_Many(t *testing.T) {
 func TestTable_DropField(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var before = time.Now()
 	defer func() {
 		var costSeconds = time.Since(before).Seconds()
@@ -240,6 +258,10 @@ func TestTable_DropField(t *testing.T) {
 
 func TestTable_Inspect(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	err := table.AddFields("expiresAt")
 	if err != nil {

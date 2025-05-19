@@ -1,3 +1,5 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package counters_test
 
 import (
@@ -123,7 +125,7 @@ func BenchmarkCounter_Increase(b *testing.B) {
 		}
 	})
 
-	//b.Log(counter.TotalItems())
+	// b.Log(counter.TotalItems())
 }
 
 func BenchmarkCounter_IncreaseKey(b *testing.B) {
@@ -148,7 +150,7 @@ func BenchmarkCounter_IncreaseKey(b *testing.B) {
 		}
 	})
 
-	//b.Log(counter.TotalItems())
+	// b.Log(counter.TotalItems())
 }
 
 func BenchmarkCounter_IncreaseKey2(b *testing.B) {
@@ -172,7 +174,7 @@ func BenchmarkCounter_IncreaseKey2(b *testing.B) {
 		}
 	})
 
-	//b.Log(counter.TotalItems())
+	// b.Log(counter.TotalItems())
 }
 
 func BenchmarkCounter_GC(b *testing.B) {
@@ -192,5 +194,5 @@ func BenchmarkCounter_GC(b *testing.B) {
 		}
 	})
 
-	//b.Log(counter.TotalItems())
+	// b.Log(counter.TotalItems())
 }

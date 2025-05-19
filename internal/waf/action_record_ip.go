@@ -7,11 +7,13 @@ import (
 
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/ipconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/types"
 )
@@ -31,11 +33,20 @@ type recordIPTask struct {
 	sourceHTTPFirewallRuleSetId   int64
 }
 
-var recordIPTaskChan = make(chan *recordIPTask, 2048)
+var recordIPTaskChan = make(chan *recordIPTask, 512)
 
 func init() {
 	if !teaconst.IsMain {
 		return
+	}
+
+	var memGB = memutils.SystemMemoryGB()
+	if memGB > 16 {
+		recordIPTaskChan = make(chan *recordIPTask, 4<<10)
+	} else if memGB > 8 {
+		recordIPTaskChan = make(chan *recordIPTask, 2<<10)
+	} else if memGB > 4 {
+		recordIPTaskChan = make(chan *recordIPTask, 1<<10)
 	}
 
 	events.On(events.EventLoaded, func() {
@@ -66,6 +77,7 @@ func init() {
 
 							pbItemMap[task.ip] = &pb.CreateIPItemsRequest_IPItem{
 								IpListId:                      task.listId,
+								Value:                         task.ip,
 								IpFrom:                        task.ip,
 								IpTo:                          "",
 								ExpiredAt:                     task.expiresAt,
@@ -94,9 +106,15 @@ func init() {
 					for _, pbItem := range pbItemMap {
 						pbItems = append(pbItems, pbItem)
 					}
-					_, err = rpcClient.IPItemRPC.CreateIPItems(rpcClient.Context(), &pb.CreateIPItemsRequest{IpItems: pbItems})
-					if err != nil {
-						remotelogs.Error("WAF_RECORD_IP_ACTION", "create ip item failed: "+err.Error())
+
+					for i := 0; i < 5; /* max tries */ i++ {
+						_, err = rpcClient.IPItemRPC.CreateIPItems(rpcClient.Context(), &pb.CreateIPItemsRequest{IpItems: pbItems})
+						if err != nil {
+							remotelogs.Error("WAF_RECORD_IP_ACTION", "create ip item failed: "+err.Error())
+							time.Sleep(1 * time.Second)
+						} else {
+							break
+						}
 					}
 				} else {
 					time.Sleep(1 * time.Second)
@@ -126,21 +144,38 @@ func (this *RecordIPAction) Code() string {
 }
 
 func (this *RecordIPAction) IsAttack() bool {
-	return this.Type == "black"
+	return this.Type == ipconfigs.IPListTypeBlack
 }
 
 func (this *RecordIPAction) WillChange() bool {
-	return this.Type == "black"
+	return this.Type == ipconfigs.IPListTypeBlack
 }
 
 func (this *RecordIPAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, request requests.Request, writer http.ResponseWriter) PerformResult {
 	var ipListId = this.IPListId
-	if ipListId <= 0 {
-		ipListId = firewallconfigs.GlobalListId
+
+	if ipListId <= 0 || firewallconfigs.IsGlobalListId(ipListId) {
+		// server or policy list ids
+		switch this.Type {
+		case ipconfigs.IPListTypeWhite:
+			ipListId = waf.AllowListId
+		case ipconfigs.IPListTypeBlack:
+			ipListId = waf.DenyListId
+		case ipconfigs.IPListTypeGrey:
+			ipListId = waf.GreyListId
+		}
+
+		// global list ids
+		if ipListId <= 0 {
+			ipListId = firewallconfigs.FindGlobalListIdWithType(this.Type)
+			if ipListId <= 0 {
+				ipListId = firewallconfigs.GlobalBlackListId
+			}
+		}
 	}
 
 	// 是否已删除
-	var ipListIsAvailable = (ipListId == firewallconfigs.GlobalListId) || (ipListId > 0 && !this.IPListIsDeleted && !ExistDeletedIPList(ipListId))
+	var ipListIsAvailable = (firewallconfigs.IsGlobalListId(ipListId)) || (ipListId > 0 && !this.IPListIsDeleted && !ExistDeletedIPList(ipListId))
 
 	// 是否在本地白名单中
 	if SharedIPWhiteList.Contains("set:"+types.String(set.Id), this.Scope, request.WAFServerId(), request.WAFRemoteIP()) {
@@ -159,7 +194,10 @@ func (this *RecordIPAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, re
 	}
 	var expiresAt = time.Now().Unix() + int64(timeout)
 
-	if this.Type == "black" {
+	var isGrey bool
+	var isWhite bool
+
+	if this.Type == ipconfigs.IPListTypeBlack {
 		request.ProcessResponseHeaders(writer.Header(), http.StatusForbidden)
 		writer.WriteHeader(http.StatusForbidden)
 
@@ -169,7 +207,11 @@ func (this *RecordIPAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, re
 		if ipListIsAvailable {
 			SharedIPBlackList.Add(IPTypeAll, this.Scope, request.WAFServerId(), request.WAFRemoteIP(), expiresAt)
 		}
+	} else if this.Type == ipconfigs.IPListTypeGrey {
+		isGrey = true
 	} else {
+		isWhite = true
+
 		// 加入本地白名单
 		if ipListIsAvailable {
 			SharedIPWhiteList.Add("set:"+types.String(set.Id), this.Scope, request.WAFServerId(), request.WAFRemoteIP(), expiresAt)
@@ -179,7 +221,7 @@ func (this *RecordIPAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, re
 	// 上报
 	if ipListId > 0 && ipListIsAvailable {
 		var serverId int64
-		if this.Scope == firewallconfigs.FirewallScopeService {
+		if this.Scope == firewallconfigs.FirewallScopeServer {
 			serverId = request.WAFServerId()
 		}
 
@@ -205,9 +247,8 @@ func (this *RecordIPAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, re
 		}
 	}
 
-	var isWhite = this.Type != "black"
 	return PerformResult{
-		ContinueRequest: isWhite,
+		ContinueRequest: isWhite || isGrey,
 		IsAllowed:       isWhite,
 		AllowScope:      AllowScopeGlobal,
 	}

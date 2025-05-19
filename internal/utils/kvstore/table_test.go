@@ -1,3 +1,5 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore_test
 
 import (
@@ -44,7 +46,7 @@ func TestTable_Set(t *testing.T) {
 
 	value, err := table.Get("a")
 	if err != nil {
-		if kvstore.IsKeyNotFound(err) {
+		if kvstore.IsNotFound(err) {
 			t.Log("not found key")
 			return
 		}
@@ -80,7 +82,7 @@ func TestTable_Get(t *testing.T) {
 	for _, key := range []string{"a", "b", "c"} {
 		value, getErr := table.Get(key)
 		if getErr != nil {
-			if kvstore.IsKeyNotFound(getErr) {
+			if kvstore.IsNotFound(getErr) {
 				t.Log("not found key", key)
 				continue
 			}
@@ -145,7 +147,7 @@ func TestTable_Delete(t *testing.T) {
 
 	value, err := table.Get("a123")
 	if err != nil {
-		if !kvstore.IsKeyNotFound(err) {
+		if !kvstore.IsNotFound(err) {
 			t.Fatal(err)
 		}
 	} else {
@@ -172,7 +174,7 @@ func TestTable_Delete(t *testing.T) {
 
 	{
 		_, err = table.Get("a123")
-		a.IsTrue(kvstore.IsKeyNotFound(err))
+		a.IsTrue(kvstore.IsNotFound(err))
 	}
 }
 
@@ -248,6 +250,10 @@ func TestTable_Delete_Empty(t *testing.T) {
 func TestTable_Count(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var before = time.Now()
 	count, err := table.Count()
 	if err != nil {
@@ -258,12 +264,17 @@ func TestTable_Count(t *testing.T) {
 
 	// watch memory usage
 	if testutils.IsSingleTesting() {
-		//time.Sleep(5 * time.Minute)
+		// time.Sleep(5 * time.Minute)
 	}
 }
 
 func TestTable_Truncate(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var before = time.Now()
 	err := table.Truncate()
 	if err != nil {
@@ -281,6 +292,11 @@ func TestTable_ComposeFieldKey(t *testing.T) {
 	var a = assert.NewAssertion(t)
 
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var fieldKeyBytes = table.ComposeFieldKey([]byte("Lily"), "username", []byte("lucy"))
 	t.Log(string(fieldKeyBytes))
 	fieldValueBytes, keyValueBytes, err := table.DecodeFieldKey("username", fieldKeyBytes)
@@ -356,7 +372,7 @@ func BenchmarkTable_Get(b *testing.B) {
 		for pb.Next() {
 			_, putErr := table.Get(types.String(rand.Int()))
 			if putErr != nil {
-				if kvstore.IsKeyNotFound(putErr) {
+				if kvstore.IsNotFound(putErr) {
 					continue
 				}
 				b.Fatal(putErr)

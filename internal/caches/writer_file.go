@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"os"
 	"strings"
 	"sync"
 
@@ -14,7 +13,7 @@ import (
 
 type FileWriter struct {
 	storage   StorageInterface
-	rawWriter *os.File
+	rawWriter *fsutils.File
 	key       string
 
 	metaHeaderSize int
@@ -27,9 +26,11 @@ type FileWriter struct {
 	maxSize   int64
 	endFunc   func()
 	once      sync.Once
+
+	modifiedBytes int
 }
 
-func NewFileWriter(storage StorageInterface, rawWriter *os.File, key string, expiredAt int64, metaHeaderSize int, metaBodySize int64, maxSize int64, endFunc func()) *FileWriter {
+func NewFileWriter(storage StorageInterface, rawWriter *fsutils.File, key string, expiredAt int64, metaHeaderSize int, metaBodySize int64, maxSize int64, endFunc func()) *FileWriter {
 	return &FileWriter{
 		storage:        storage,
 		key:            key,
@@ -44,9 +45,7 @@ func NewFileWriter(storage StorageInterface, rawWriter *os.File, key string, exp
 
 // WriteHeader 写入数据
 func (this *FileWriter) WriteHeader(data []byte) (n int, err error) {
-	fsutils.WriteBegin()
 	n, err = this.rawWriter.Write(data)
-	fsutils.WriteEnd()
 	this.headerSize += int64(n)
 	if err != nil {
 		_ = this.Discard()
@@ -80,7 +79,7 @@ func (this *FileWriter) Write(data []byte) (n int, err error) {
 	var l = len(data)
 	if l > (2 << 20) {
 		var offset = 0
-		const bufferSize = 256 << 10
+		const bufferSize = 64 << 10
 		for {
 			var end = offset + bufferSize
 			if end > l {
@@ -137,32 +136,33 @@ func (this *FileWriter) Close() error {
 
 	var path = this.rawWriter.Name()
 
+	// check content length
+	if this.metaBodySize > 0 && this.bodySize != this.metaBodySize {
+		_ = this.rawWriter.Close()
+		_ = fsutils.Remove(path)
+		return ErrUnexpectedContentLength
+	}
+
 	err := this.WriteHeaderLength(types.Int(this.headerSize))
 	if err != nil {
-		fsutils.WriteBegin()
 		_ = this.rawWriter.Close()
-		fsutils.WriteEnd()
-		_ = os.Remove(path)
+		_ = fsutils.Remove(path)
 		return err
 	}
 	err = this.WriteBodyLength(this.bodySize)
 	if err != nil {
-		fsutils.WriteBegin()
 		_ = this.rawWriter.Close()
-		fsutils.WriteEnd()
-		_ = os.Remove(path)
+		_ = fsutils.Remove(path)
 		return err
 	}
 
-	fsutils.WriteBegin()
 	err = this.rawWriter.Close()
-	fsutils.WriteEnd()
 	if err != nil {
-		_ = os.Remove(path)
+		_ = fsutils.Remove(path)
 	} else if strings.HasSuffix(path, FileTmpSuffix) {
-		err = os.Rename(path, strings.Replace(path, FileTmpSuffix, "", 1))
+		err = fsutils.Rename(path, strings.Replace(path, FileTmpSuffix, "", 1))
 		if err != nil {
-			_ = os.Remove(path)
+			_ = fsutils.Remove(path)
 		}
 	}
 
@@ -175,11 +175,9 @@ func (this *FileWriter) Discard() error {
 		this.endFunc()
 	})
 
-	fsutils.WriteBegin()
 	_ = this.rawWriter.Close()
-	fsutils.WriteEnd()
 
-	err := os.Remove(this.rawWriter.Name())
+	err := fsutils.Remove(this.rawWriter.Name())
 	return err
 }
 
@@ -205,9 +203,7 @@ func (this *FileWriter) ItemType() ItemType {
 }
 
 func (this *FileWriter) write(data []byte) (n int, err error) {
-	fsutils.WriteBegin()
 	n, err = this.rawWriter.Write(data)
-	fsutils.WriteEnd()
 	this.bodySize += int64(n)
 
 	if this.maxSize > 0 && this.bodySize > this.maxSize {
@@ -221,5 +217,6 @@ func (this *FileWriter) write(data []byte) (n int, err error) {
 	if err != nil {
 		_ = this.Discard()
 	}
+
 	return
 }

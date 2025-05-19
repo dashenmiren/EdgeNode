@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package clock
 
 import (
@@ -10,9 +12,9 @@ import (
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	timeutil "github.com/iwind/TeaGo/utils/time"
 )
 

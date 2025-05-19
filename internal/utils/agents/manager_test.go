@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package agents_test
 
 import (
@@ -14,7 +16,7 @@ func TestNewManager(t *testing.T) {
 		return
 	}
 
-	var db = agents.NewDB(Tea.Root + "/data/agents.db")
+	var db = agents.NewSQLiteDB(Tea.Root + "/data/agents.db")
 	err := db.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -32,5 +34,8 @@ func TestNewManager(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(manager.LookupIP("192.168.3.100"))
+	t.Log(manager.LookupIP("192.168.3.100"))   // not found
+	t.Log(manager.LookupIP("66.249.79.25"))    // google
+	t.Log(manager.ContainsIP("66.249.79.25"))  // true
+	t.Log(manager.ContainsIP("66.249.79.255")) // not found
 }

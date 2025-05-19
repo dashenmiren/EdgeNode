@@ -1,8 +1,12 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore
 
 import (
 	"errors"
 	"sync"
+
+	"github.com/cockroachdb/pebble"
 )
 
 type DB struct {
@@ -12,7 +16,7 @@ type DB struct {
 	namespace string
 	tableMap  map[string]TableInterface
 
-	locker sync.RWMutex
+	mu sync.RWMutex
 }
 
 func NewDB(store *Store, dbName string) (*DB, error) {
@@ -32,8 +36,8 @@ func (this *DB) AddTable(table TableInterface) {
 	table.SetNamespace([]byte(this.Namespace() + table.Name() + "$"))
 	table.SetDB(this)
 
-	this.locker.Lock()
-	defer this.locker.Unlock()
+	this.mu.Lock()
+	defer this.mu.Unlock()
 
 	this.tableMap[table.Name()] = table
 }
@@ -50,9 +54,41 @@ func (this *DB) Store() *Store {
 	return this.store
 }
 
+func (this *DB) Inspect(fn func(key []byte, value []byte)) error {
+	it, err := this.store.rawDB.NewIter(&pebble.IterOptions{
+		LowerBound: []byte(this.namespace),
+		UpperBound: append([]byte(this.namespace), 0xFF, 0xFF),
+	})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = it.Close()
+	}()
+
+	for it.First(); it.Valid(); it.Next() {
+		value, valueErr := it.ValueAndErr()
+		if valueErr != nil {
+			return valueErr
+		}
+		fn(it.Key(), value)
+	}
+
+	return nil
+}
+
+// Truncate the database
+func (this *DB) Truncate() error {
+	this.mu.Lock()
+	defer this.mu.Unlock()
+
+	var start = []byte(this.Namespace())
+	return this.store.rawDB.DeleteRange(start, append(start, 0xFF), DefaultWriteOptions)
+}
+
 func (this *DB) Close() error {
-	this.locker.Lock()
-	defer this.locker.Unlock()
+	this.mu.Lock()
+	defer this.mu.Unlock()
 
 	var lastErr error
 	for _, table := range this.tableMap {

@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches
 
 import (
@@ -7,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/dashenmiren/EdgeNode/internal/utils/linkedlist"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	"github.com/fsnotify/fsnotify"
 	"github.com/iwind/TeaGo/logs"
 	"github.com/iwind/TeaGo/types"
@@ -37,12 +39,15 @@ func NewOpenFileCache(maxCount int) (*OpenFileCache, error) {
 	if maxCount <= 0 {
 		maxCount = 16384
 	}
+	if maxCount > 65535 {
+		maxCount = 65535
+	}
 
 	var cache = &OpenFileCache{
 		maxCount:     maxCount,
 		poolMap:      map[string]*OpenFilePool{},
 		poolList:     linkedlist.NewList[*OpenFilePool](),
-		capacitySize: (int64(utils.SystemMemoryGB()) << 30) / 16,
+		capacitySize: (int64(memutils.SystemMemoryGB()) << 30) / 16,
 	}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -63,6 +68,8 @@ func NewOpenFileCache(maxCount int) (*OpenFileCache, error) {
 }
 
 func (this *OpenFileCache) Get(filename string) *OpenFile {
+	filename = filepath.Clean(filename)
+
 	this.locker.RLock()
 	pool, ok := this.poolMap[filename]
 	this.locker.RUnlock()
@@ -84,6 +91,8 @@ func (this *OpenFileCache) Get(filename string) *OpenFile {
 }
 
 func (this *OpenFileCache) Put(filename string, file *OpenFile) {
+	filename = filepath.Clean(filename)
+
 	if file.size > maxOpenFileSize {
 		return
 	}
@@ -118,6 +127,8 @@ func (this *OpenFileCache) Put(filename string, file *OpenFile) {
 }
 
 func (this *OpenFileCache) Close(filename string) {
+	filename = filepath.Clean(filename)
+
 	this.locker.Lock()
 
 	pool, ok := this.poolMap[filename]

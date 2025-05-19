@@ -1,9 +1,11 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package waf
 
 import (
 	"sync"
 
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 )
 
 var deletedIPListIdMap = map[int64]zero.Zero{} // listId => Zero

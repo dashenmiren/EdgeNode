@@ -1,3 +1,4 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build !arm64
 // +build !arm64
 
@@ -42,3 +43,4 @@ func (this *Node) handlePanic() {
 		logs.Println("NODE", "write to 'panic.log' failed: "+err.Error())
 	}
 }
+

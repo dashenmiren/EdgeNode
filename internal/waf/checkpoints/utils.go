@@ -149,7 +149,7 @@ var AllCheckpoints = []*CheckpointDefinition{
 	{
 		Name:        "CNAME",
 		Prefix:      "cname",
-		Description: "当前网站服务CNAME，比如38b48e4f.example.cn",
+		Description: "当前网站服务CNAME，比如38b48e4f.cdn.foyeseo.com",
 		HasParams:   false,
 		Instance:    new(RequestCNAMECheckpoint),
 		Priority:    100,
@@ -243,11 +243,19 @@ var AllCheckpoints = []*CheckpointDefinition{
 		Priority:    100,
 	},
 	{
-		Name:        "单个Header值",
+		Name:        "单个报头值",
 		Prefix:      "header",
-		Description: "单个Header值",
+		Description: "单个报头值",
 		HasParams:   true,
 		Instance:    new(RequestHeaderCheckpoint),
+		Priority:    100,
+	},
+	{
+		Name:        "请求报头最大长度",
+		Prefix:      "headerMaxLength",
+		Description: "最长的请求报头的长度。",
+		HasParams:   false,
+		Instance:    new(RequestHeaderMaxLengthCheckpoint),
 		Priority:    100,
 	},
 	{

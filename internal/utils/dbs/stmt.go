@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package dbs
 
 import (
@@ -38,9 +40,9 @@ func (this *Stmt) ExecContext(ctx context.Context, args ...any) (result sql.Resu
 	if this.enableStat {
 		defer SharedQueryStatManager.AddQuery(this.query).End()
 	}
-	fsutils.WriteBegin()
+	fsutils.WriterLimiter.Ack()
 	result, err = this.rawStmt.ExecContext(ctx, args...)
-	fsutils.WriteEnd()
+	fsutils.WriterLimiter.Release()
 	return
 }
 
@@ -56,9 +58,9 @@ func (this *Stmt) Exec(args ...any) (result sql.Result, err error) {
 		defer SharedQueryStatManager.AddQuery(this.query).End()
 	}
 
-	fsutils.WriteBegin()
+	fsutils.WriterLimiter.Ack()
 	result, err = this.rawStmt.Exec(args...)
-	fsutils.WriteEnd()
+	fsutils.WriterLimiter.Release()
 	return
 }
 

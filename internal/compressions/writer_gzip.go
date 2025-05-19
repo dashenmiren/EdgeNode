@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
@@ -17,12 +19,8 @@ func NewGzipWriter(writer io.Writer, level int) (Writer, error) {
 	return sharedGzipWriterPool.Get(writer, level)
 }
 
-func newGzipWriter(writer io.Writer, level int) (Writer, error) {
-	if level <= 0 {
-		level = gzip.BestSpeed
-	} else if level > gzip.BestCompression {
-		level = gzip.BestCompression
-	}
+func newGzipWriter(writer io.Writer) (Writer, error) {
+	var level = GenerateCompressLevel(gzip.BestSpeed, gzip.BestCompression)
 
 	gzipWriter, err := gzip.NewWriterLevel(writer, level)
 	if err != nil {
