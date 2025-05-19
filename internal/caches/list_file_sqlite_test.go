@@ -1,18 +1,19 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
-	"strconv"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
 
 func TestFileList_Init(t *testing.T) {
@@ -139,7 +140,7 @@ func TestFileList_Exist(t *testing.T) {
 	}()
 	{
 		var hash = stringutil.Md5("123456")
-		exists, err := list.Exist(hash)
+		exists, _, err := list.Exist(hash)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -147,7 +148,7 @@ func TestFileList_Exist(t *testing.T) {
 	}
 	{
 		var hash = stringutil.Md5("http://edge.teaos.cn/1234561")
-		exists, err := list.Exist(hash)
+		exists, _, err := list.Exist(hash)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -207,7 +208,7 @@ func TestFileList_Exist_Many_DB(t *testing.T) {
 					countLocker.Unlock()
 
 					var list = listSlice[rands.Int(0, len(listSlice)-1)]
-					_, _ = list.Exist(hash)
+					_, _, _ = list.Exist(hash)
 				default:
 					return
 				}
@@ -441,6 +442,6 @@ func BenchmarkFileList_Exist(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = list.Exist("f0eb5b87e0b0041f3917002c0707475f" + types.String(i))
+		_, _, _ = list.Exist("f0eb5b87e0b0041f3917002c0707475f" + types.String(i))
 	}
 }

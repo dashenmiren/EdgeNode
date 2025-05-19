@@ -1,14 +1,16 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package cachehits
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/idles"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/iwind/TeaGo/Tea"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/iwind/TeaGo/Tea"
 )
 
 const countSamples = 100_000
@@ -37,7 +39,7 @@ func NewStat(goodRatio uint64) *Stat {
 		goodRatio = 5
 	}
 
-	var maxItems = utils.SystemMemoryGB() * 10_000
+	var maxItems = memutils.SystemMemoryGB() * 10_000
 	if maxItems <= 0 {
 		maxItems = 100_000
 	}
@@ -57,7 +59,7 @@ func NewStat(goodRatio uint64) *Stat {
 }
 
 func (this *Stat) init() {
-	for range this.ticker.C {
+	idles.RunTicker(this.ticker, func() {
 		var currentTime = fasttime.Now().Unix()
 
 		this.mu.RLock()
@@ -72,7 +74,7 @@ func (this *Stat) init() {
 			}
 		}
 		this.mu.RUnlock()
-	}
+	})
 }
 
 func (this *Stat) IncreaseCached(category string) {

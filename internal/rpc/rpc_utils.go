@@ -1,12 +1,11 @@
 package rpc
 
 import (
-	"strings"
-	"sync"
-
 	"github.com/dashenmiren/EdgeNode/internal/configs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strings"
+	"sync"
 )
 
 var sharedRPC *RPCClient = nil

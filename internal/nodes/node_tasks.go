@@ -1,29 +1,30 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/ddosconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/configs"
 	"github.com/dashenmiren/EdgeNode/internal/firewalls"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
+	"os"
+	"strings"
+	"time"
 )
 
 // 循环

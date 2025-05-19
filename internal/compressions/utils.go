@@ -1,11 +1,14 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
 	"errors"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	"io"
 	"net/http"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"runtime"
 )
 
 type ContentEncoding = string
@@ -86,4 +89,32 @@ func WrapHTTPResponse(resp *http.Response) {
 	resp.Header.Del("Content-Encoding")
 	resp.Header.Del("Content-Length")
 	resp.Body = reader
+}
+
+// 系统CPU线程数
+var countCPU = runtime.NumCPU()
+
+// GenerateCompressLevel 根据系统资源自动生成压缩级别
+func GenerateCompressLevel(minLevel int, maxLevel int) (level int) {
+	if countCPU < 16 {
+		return minLevel
+	}
+
+	if countCPU < 32 {
+		return min(3, maxLevel)
+	}
+
+	return min(5, maxLevel)
+}
+
+// CalculatePoolSize 计算Pool尺寸
+func CalculatePoolSize() int {
+	var maxSize = memutils.SystemMemoryGB() * 32
+	if maxSize == 0 {
+		maxSize = 128
+	}
+	if maxSize > 2048 {
+		maxSize = 2048
+	}
+	return maxSize
 }

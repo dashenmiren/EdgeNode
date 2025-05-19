@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
-	"sync"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/iwind/TeaGo/rands"
+	"sync"
+	"testing"
 )
 
 func TestOpenFilePool_Get(t *testing.T) {

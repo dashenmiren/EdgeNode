@@ -1,10 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"net"
 	"strings"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 )
 
 func ParseHost(key string) string {

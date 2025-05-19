@@ -1,15 +1,16 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
-	"github.com/dashenmiren/EdgeNode/internal/caches"
 )
 
 func TestNewMemoryWriter(t *testing.T) {

@@ -1,11 +1,10 @@
 package checkpoints_test
 
 import (
-	"net/http"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"net/http"
+	"testing"
 )
 
 func TestRequestRefererOriginCheckpoint_RequestValue(t *testing.T) {

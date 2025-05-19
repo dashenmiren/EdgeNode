@@ -1,23 +1,22 @@
 package stats
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/monitor"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/monitor"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
 )
 
 var SharedTrafficStatManager = NewTrafficStatManager()

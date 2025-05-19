@@ -1,6 +1,10 @@
 package utils_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/re"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/iwind/TeaGo/rands"
 	"net/http"
 	"regexp"
 	"runtime"
@@ -8,11 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/re"
-	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
-	"github.com/iwind/TeaGo/rands"
 )
 
 func TestMatchStringCache(t *testing.T) {

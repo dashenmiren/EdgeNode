@@ -1,12 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package stats_test
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeNode/internal/stats"
 	"runtime"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeNode/internal/stats"
 )
 
 func TestBandwidthStatManager_Add(t *testing.T) {

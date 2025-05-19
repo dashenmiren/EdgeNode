@@ -1,12 +1,13 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package waf
 
 import (
 	"bytes"
-	"io"
-	"time"
-
 	"github.com/dchest/captcha"
 	"github.com/iwind/TeaGo/rands"
+	"io"
+	"time"
 )
 
 // CaptchaGenerator captcha generator

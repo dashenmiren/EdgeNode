@@ -1,13 +1,14 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package checkpoints
 
 import (
-	"net/url"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
+	"net/url"
 )
 
 // RequestRefererBlockCheckpoint 防盗链

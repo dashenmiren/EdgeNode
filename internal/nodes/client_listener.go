@@ -1,12 +1,13 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
-	"net"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/firewalls"
 	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
+	"net"
 )
 
 // ClientListener 客户端网络监听

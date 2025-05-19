@@ -1,10 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package rangeutils_test
 
 import (
-	"testing"
-
 	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 	"github.com/iwind/TeaGo/assert"
+	"testing"
 )
 
 func TestRange(t *testing.T) {

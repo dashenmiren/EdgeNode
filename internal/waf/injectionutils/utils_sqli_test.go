@@ -1,15 +1,16 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package injectionutils_test
 
 import (
-	"runtime"
-	"strings"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/injectionutils"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"runtime"
+	"strings"
+	"testing"
 )
 
 func TestDetectSQLInjection(t *testing.T) {

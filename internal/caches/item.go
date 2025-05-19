@@ -1,9 +1,8 @@
 package caches
 
 import (
-	"strings"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"strings"
 )
 
 type ItemType = int

@@ -1,3 +1,5 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package runes
 
 // ContainsAnyWordRunes 直接使用rune检查字符串是否包含任一单词

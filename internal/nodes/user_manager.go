@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
@@ -38,7 +40,7 @@ func (this *UserManager) CheckUserServersIsEnabled(userId int64) (isEnabled bool
 	if userId <= 0 {
 		return true
 	}
-
+	
 	this.locker.RLock()
 	u, ok := this.userMap[userId]
 	if ok {

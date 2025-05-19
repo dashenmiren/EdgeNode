@@ -1,10 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/compressions"
+	"testing"
 )
 
 func BenchmarkGzipWriter_Write(b *testing.B) {

@@ -1,9 +1,10 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
-	"io"
-
 	"github.com/klauspost/compress/gzip"
+	"io"
 )
 
 type GzipReader struct {

@@ -3,10 +3,6 @@ package waf
 import (
 	"errors"
 	"fmt"
-	"net/http"
-	"os"
-	"reflect"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
@@ -14,6 +10,9 @@ import (
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
 	"gopkg.in/yaml.v3"
+	"net/http"
+	"os"
+	"reflect"
 )
 
 type WAF struct {
@@ -27,9 +26,18 @@ type WAF struct {
 	UseLocalFirewall bool                            `yaml:"useLocalFirewall" json:"useLocalFirewall"`
 	SYNFlood         *firewallconfigs.SYNFloodConfig `yaml:"synFlood" json:"synFlood"`
 
-	DefaultBlockAction   *BlockAction
-	DefaultPageAction    *PageAction
-	DefaultCaptchaAction *CaptchaAction
+	// ip lists
+
+	AllowListId int64 `yaml:"allowListId" json:"allowListId"`
+	DenyListId  int64 `yaml:"denyListId" json:"denyListId"`
+	GreyListId  int64 `yaml:"greyListId" json:"greyListId"`
+
+	DefaultBlockAction    *BlockAction
+	DefaultPageAction     *PageAction
+	DefaultCaptchaAction  *CaptchaAction
+	DefaultJSCookieAction *JSCookieAction
+	DefaultPost307Action  *Post307Action
+	DefaultGet302Action   *Get302Action
 
 	hasInboundRules  bool
 	hasOutboundRules bool

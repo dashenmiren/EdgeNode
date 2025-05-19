@@ -1,12 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches_test
 
 import (
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/types"
+	"testing"
+	"time"
 )
 
 func TestNewOpenFileCache_Close(t *testing.T) {

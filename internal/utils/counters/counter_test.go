@@ -1,18 +1,19 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package counters_test
 
 import (
-	"runtime"
-	"runtime/debug"
-	"sync/atomic"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	timeutil "github.com/iwind/TeaGo/utils/time"
+	"runtime"
+	"runtime/debug"
+	"sync/atomic"
+	"testing"
+	"time"
 )
 
 func TestCounter_Increase(t *testing.T) {

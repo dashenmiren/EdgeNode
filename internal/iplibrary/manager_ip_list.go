@@ -1,20 +1,23 @@
 package iplibrary
 
 import (
-	"sync"
-	"time"
-
+	"github.com/dashenmiren/EdgeCommon/pkg/iputils"
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/idles"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
 	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/types"
+	"os"
+	"sync"
+	"time"
 )
 
 var SharedIPListManager = NewIPListManager()
@@ -36,9 +39,9 @@ func init() {
 
 	var ticker = time.NewTicker(24 * time.Hour)
 	goman.New(func() {
-		for range ticker.C {
+		idles.RunTicker(ticker, func() {
 			SharedIPListManager.DeleteExpiredItems()
-		}
+		})
 	})
 }
 
@@ -46,13 +49,13 @@ func init() {
 type IPListManager struct {
 	ticker *time.Ticker
 
-	db *IPListDB
+	db IPListDB
 
 	lastVersion   int64
 	fetchPageSize int64
 
 	listMap map[int64]*IPList
-	locker  sync.Mutex
+	mu      sync.RWMutex
 
 	isFirstTime bool
 }
@@ -66,10 +69,10 @@ func NewIPListManager() *IPListManager {
 }
 
 func (this *IPListManager) Start() {
-	this.init()
+	this.Init()
 
 	// 第一次读取
-	err := this.loop()
+	err := this.Loop()
 	if err != nil {
 		remotelogs.ErrorObject("IP_LIST_MANAGER", err)
 	}
@@ -84,7 +87,7 @@ func (this *IPListManager) Start() {
 		case <-this.ticker.C:
 		case <-IPListUpdateNotify:
 		}
-		err := this.loop()
+		err = this.Loop()
 		if err != nil {
 			countErrors++
 
@@ -109,9 +112,20 @@ func (this *IPListManager) Stop() {
 	}
 }
 
-func (this *IPListManager) init() {
+func (this *IPListManager) Init() {
 	// 从数据库中当中读取数据
-	db, err := NewIPListDB()
+	// 检查sqlite文件是否存在，以便决定使用sqlite还是kv
+	var sqlitePath = Tea.Root + "/data/ip_list.db"
+	_, sqliteErr := os.Stat(sqlitePath)
+
+	var db IPListDB
+	var err error
+	if sqliteErr == nil || !teaconst.EnableKVCacheStore {
+		db, err = NewSQLiteIPList()
+	} else {
+		db, err = NewKVIPList()
+	}
+
 	if err != nil {
 		remotelogs.Error("IP_LIST_MANAGER", "create ip list local database failed: "+err.Error())
 	} else {
@@ -121,22 +135,28 @@ func (this *IPListManager) init() {
 		_ = db.DeleteExpiredItems()
 
 		// 本地数据库中最大版本号
-		this.lastVersion = db.ReadMaxVersion()
+		this.lastVersion, err = db.ReadMaxVersion()
+		if err != nil {
+			remotelogs.Error("IP_LIST_MANAGER", "find max version failed: "+err.Error())
+			this.lastVersion = 0
+		}
+		remotelogs.Println("IP_LIST_MANAGER", "starting from '"+db.Name()+"' version '"+types.String(this.lastVersion)+"' ...")
 
 		// 从本地数据库中加载
 		var offset int64 = 0
 		var size int64 = 2_000
+
+		var tr = trackers.Begin("IP_LIST_MANAGER:load")
+		defer tr.End()
+
 		for {
-			items, err := db.ReadItems(offset, size)
+			items, goNext, readErr := db.ReadItems(offset, size)
 			var l = len(items)
-			if err != nil {
-				remotelogs.Error("IP_LIST_MANAGER", "read ip list from local database failed: "+err.Error())
+			if readErr != nil {
+				remotelogs.Error("IP_LIST_MANAGER", "read ip list from local database failed: "+readErr.Error())
 			} else {
-				if l == 0 {
-					break
-				}
 				this.processItems(items, false)
-				if int64(l) < size {
+				if !goNext {
 					break
 				}
 			}
@@ -145,7 +165,7 @@ func (this *IPListManager) init() {
 	}
 }
 
-func (this *IPListManager) loop() error {
+func (this *IPListManager) Loop() error {
 	// 是否同步IP名单
 	nodeConfig, _ := nodeconfigs.SharedNodeConfig()
 	if nodeConfig != nil && !nodeConfig.EnableIPLists {
@@ -193,6 +213,18 @@ func (this *IPListManager) fetch() (hasNext bool, err error) {
 		}
 		return false, err
 	}
+
+	// 更新版本号
+	defer func() {
+		if itemsResp.Version > this.lastVersion {
+			this.lastVersion = itemsResp.Version
+			err = this.db.UpdateMaxVersion(itemsResp.Version)
+			if err != nil {
+				remotelogs.Error("IP_LIST_MANAGER", "update max version to database: "+err.Error())
+			}
+		}
+	}()
+
 	var items = itemsResp.IpItems
 	if len(items) == 0 {
 		return false, nil
@@ -214,9 +246,10 @@ func (this *IPListManager) fetch() (hasNext bool, err error) {
 }
 
 func (this *IPListManager) FindList(listId int64) *IPList {
-	this.locker.Lock()
+	this.mu.RLock()
 	var list = this.listMap[listId]
-	this.locker.Unlock()
+	this.mu.RUnlock()
+
 	return list
 }
 
@@ -224,6 +257,10 @@ func (this *IPListManager) DeleteExpiredItems() {
 	if this.db != nil {
 		_ = this.db.DeleteExpiredItems()
 	}
+}
+
+func (this *IPListManager) ListMap() map[int64]*IPList {
+	return this.listMap
 }
 
 // 处理IP条目
@@ -252,15 +289,15 @@ func (this *IPListManager) processItems(items []*pb.IPItem, fromRemote bool) {
 				list = GlobalWhiteIPList
 			}
 		} else { // 其他List
-			this.locker.Lock()
+			this.mu.Lock()
 			list = this.listMap[item.ListId]
-			this.locker.Unlock()
+			this.mu.Unlock()
 		}
 		if list == nil {
 			list = NewIPList()
-			this.locker.Lock()
+			this.mu.Lock()
 			this.listMap[item.ListId] = list
-			this.locker.Unlock()
+			this.mu.Unlock()
 		}
 
 		changedLists[list] = zero.New()
@@ -282,8 +319,8 @@ func (this *IPListManager) processItems(items []*pb.IPItem, fromRemote bool) {
 		list.AddDelay(&IPItem{
 			Id:         uint64(item.Id),
 			Type:       item.Type,
-			IPFrom:     utils.IP2Long(item.IpFrom),
-			IPTo:       utils.IP2Long(item.IpTo),
+			IPFrom:     iputils.ToBytes(item.IpFrom),
+			IPTo:       iputils.ToBytes(item.IpTo),
 			ExpiredAt:  item.ExpiredAt,
 			EventLevel: item.EventLevel,
 		})
@@ -295,23 +332,23 @@ func (this *IPListManager) processItems(items []*pb.IPItem, fromRemote bool) {
 		}
 	}
 
-	for changedList := range changedLists {
-		changedList.Sort()
-	}
-
-	if fromRemote {
-		var latestVersion = items[len(items)-1].Version
-		if latestVersion > this.lastVersion {
-			this.lastVersion = latestVersion
+	if len(changedLists) > 0 {
+		for changedList := range changedLists {
+			changedList.Sort()
 		}
 	}
 }
 
 // 调试IP信息
 func (this *IPListManager) debugItem(item *pb.IPItem) {
+	var ipRange = item.IpFrom
+	if len(item.IpTo) > 0 {
+		ipRange += " - " + item.IpTo
+	}
+
 	if item.IsDeleted {
-		remotelogs.Debug("IP_ITEM_DEBUG", "delete '"+item.IpFrom+"'")
+		remotelogs.Debug("IP_ITEM_DEBUG", "delete '"+ipRange+"'")
 	} else {
-		remotelogs.Debug("IP_ITEM_DEBUG", "add '"+item.IpFrom+"'")
+		remotelogs.Debug("IP_ITEM_DEBUG", "add '"+ipRange+"'")
 	}
 }

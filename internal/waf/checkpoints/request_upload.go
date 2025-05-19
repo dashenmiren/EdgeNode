@@ -2,18 +2,17 @@ package checkpoints
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/iwind/TeaGo/lists"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
-	"github.com/iwind/TeaGo/lists"
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
 )
 
 var multipartHeaderRegexp = regexp.MustCompile(`(?i)(?:^|\r\n)--+\w+\r\n((([\w-]+: .+)\r\n)+)`)

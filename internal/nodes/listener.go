@@ -3,16 +3,15 @@ package nodes
 import (
 	"context"
 	"errors"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"net"
 	"strings"
 	"sync"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"golang.org/x/net/ipv4"
-	"golang.org/x/net/ipv6"
 )
 
 type Listener struct {
@@ -89,11 +88,6 @@ func (this *Listener) listenTCP() error {
 	case serverconfigs.ProtocolTLS, serverconfigs.ProtocolTLS4, serverconfigs.ProtocolTLS6:
 		netListener.SetIsTLS(true)
 		this.listener = &TCPListener{
-			BaseListener: BaseListener{Group: this.group},
-			Listener:     netListener,
-		}
-	case serverconfigs.ProtocolUnix:
-		this.listener = &UnixListener{
 			BaseListener: BaseListener{Group: this.group},
 			Listener:     netListener,
 		}

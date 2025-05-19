@@ -1,12 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package linkedlist_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/linkedlist"
+	"github.com/iwind/TeaGo/types"
 	"runtime"
 	"strconv"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/linkedlist"
-	"github.com/iwind/TeaGo/types"
 )
 
 func TestNewList_Memory(t *testing.T) {

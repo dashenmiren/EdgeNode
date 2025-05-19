@@ -1,11 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package ratelimit_test
 
 import (
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/ratelimit"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"testing"
+	"time"
 )
 
 func TestCounter_ACK(t *testing.T) {

@@ -1,9 +1,10 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package waf
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"net/http"
 )
 
 type ActionInterface interface {

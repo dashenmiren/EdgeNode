@@ -1,15 +1,16 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
-	"sync/atomic"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/monitor"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/maps"
+	"sync/atomic"
+	"time"
 )
 
 // 发送监控流量

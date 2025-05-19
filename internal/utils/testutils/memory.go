@@ -1,12 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package testutils
 
 import (
 	"fmt"
+	timeutil "github.com/iwind/TeaGo/utils/time"
 	"runtime"
 	"testing"
 	"time"
-
-	timeutil "github.com/iwind/TeaGo/utils/time"
 )
 
 func StartMemoryStatsGC(t *testing.T) {

@@ -5,16 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
-	"net"
-	"reflect"
-	"regexp"
-	"sort"
-	"strings"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/filterconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/re"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/re"
 	"github.com/dashenmiren/EdgeNode/internal/utils/runes"
 	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
 	"github.com/dashenmiren/EdgeNode/internal/waf/injectionutils"
@@ -25,6 +19,11 @@ import (
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"
+	"net"
+	"reflect"
+	"regexp"
+	"sort"
+	"strings"
 )
 
 var singleParamRegexp = regexp.MustCompile(`^\${[\w.-]+}$`)

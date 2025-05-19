@@ -1,12 +1,8 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package waf_test
 
 import (
-	"os"
-	"runtime"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
@@ -15,6 +11,11 @@ import (
 	_ "github.com/iwind/TeaGo/bootstrap"
 	"github.com/iwind/TeaGo/logs"
 	timeutil "github.com/iwind/TeaGo/utils/time"
+	"os"
+	"runtime"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestNewIPList(t *testing.T) {
@@ -22,7 +23,7 @@ func TestNewIPList(t *testing.T) {
 	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeGlobal, 1, "127.0.0.1", time.Now().Unix())
 	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeGlobal, 1, "127.0.0.2", time.Now().Unix()+1)
 	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeGlobal, 1, "127.0.0.1", time.Now().Unix()+2)
-	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeService, 1, "127.0.0.3", time.Now().Unix()+3)
+	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeServer, 1, "127.0.0.3", time.Now().Unix()+3)
 	list.Add(waf.IPTypeAll, firewallconfigs.FirewallScopeGlobal, 1, "127.0.0.10", time.Now().Unix()+10)
 
 	list.RemoveIP("127.0.0.1", 1, false)

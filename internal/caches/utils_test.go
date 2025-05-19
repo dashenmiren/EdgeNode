@@ -1,20 +1,21 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches_test
 
 import (
 	"fmt"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/cespare/xxhash/v2"
+	"github.com/iwind/TeaGo/types"
 	"strconv"
 	"testing"
-
-	"github.com/cespare/xxhash"
-	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/iwind/TeaGo/types"
 )
 
 func TestParseHost(t *testing.T) {
 	for _, u := range []string{
-		"https://google.com/hello/world",
-		"https://google.com:8080/hello/world",
-		"https://google.com/hello/world?v=1&t=123",
+		"https://cdn.foyeseo.com/hello/world",
+		"https://cdn.foyeseo.com:8080/hello/world",
+		"https://cdn.foyeseo.com/hello/world?v=1&t=123",
 		"https://[::1]:1234/hello/world?v=1&t=123",
 		"https://[::1]/hello/world?v=1&t=123",
 		"https://127.0.0.1/hello/world?v=1&t=123",
@@ -26,7 +27,7 @@ func TestParseHost(t *testing.T) {
 }
 
 func TestUintString(t *testing.T) {
-	t.Log(strconv.FormatUint(xxhash.Sum64String("https://google.com/"), 10))
+	t.Log(strconv.FormatUint(xxhash.Sum64String("https://cdn.foyeseo.com/"), 10))
 	t.Log(strconv.FormatUint(123456789, 10))
 	t.Logf("%d", 1234567890123)
 }

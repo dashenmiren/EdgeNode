@@ -2,6 +2,13 @@ package waf_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/waf"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/assert"
+	"github.com/iwind/TeaGo/lists"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/types"
 	"math/rand"
 	"mime/multipart"
 	"net/http"
@@ -10,14 +17,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/waf"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/assert"
-	"github.com/iwind/TeaGo/lists"
-	"github.com/iwind/TeaGo/logs"
-	"github.com/iwind/TeaGo/types"
 )
 
 const testUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_0_0) AppleWebKit/500.00 (KHTML, like Gecko) Chrome/100.0.0.0"

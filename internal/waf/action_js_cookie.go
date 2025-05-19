@@ -1,17 +1,18 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package waf
 
 import (
 	"crypto/md5"
 	"fmt"
-	"net/http"
-	"strings"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/types"
+	"net/http"
+	"strings"
+	"time"
 )
 
 type JSCookieAction struct {
@@ -21,10 +22,32 @@ type JSCookieAction struct {
 	MaxFails         int    `yaml:"maxFails" json:"maxFails"`                 // 最大失败次数
 	FailBlockTimeout int    `yaml:"failBlockTimeout" json:"failBlockTimeout"` // 失败拦截时间
 	Scope            string `yaml:"scope" json:"scope"`
+
+	FailBlockScopeAll bool `yaml:"failBlockScopeAll" json:"failBlockScopeAll"`
 }
 
 func (this *JSCookieAction) Init(waf *WAF) error {
-	this.Scope = firewallconfigs.FirewallScopeGlobal
+
+	if waf.DefaultJSCookieAction != nil {
+		if this.Life <= 0 {
+			this.Life = waf.DefaultJSCookieAction.Life
+		}
+		if this.MaxFails <= 0 {
+			this.MaxFails = waf.DefaultJSCookieAction.MaxFails
+		}
+		if this.FailBlockTimeout <= 0 {
+			this.FailBlockTimeout = waf.DefaultJSCookieAction.FailBlockTimeout
+		}
+		if len(this.Scope) == 0 {
+			this.Scope = waf.DefaultJSCookieAction.Scope
+		}
+
+		this.FailBlockScopeAll = waf.DefaultJSCookieAction.FailBlockScopeAll
+	}
+
+	if len(this.Scope) == 0 {
+		this.Scope = firewallconfigs.FirewallScopeGlobal
+	}
 
 	return nil
 }
@@ -106,19 +129,19 @@ window.location.reload();
 	_, _ = writer.Write([]byte(respHTML))
 
 	// 记录失败次数
-	this.increaseFails(req, waf.Id, group.Id, set.Id)
+	this.increaseFails(req, waf.Id, group.Id, set.Id, waf.UseLocalFirewall && (this.FailBlockScopeAll || this.Scope == firewallconfigs.FirewallScopeGlobal))
 
 	return PerformResult{}
 }
 
-func (this *JSCookieAction) increaseFails(req requests.Request, policyId int64, groupId int64, setId int64) (goNext bool) {
+func (this *JSCookieAction) increaseFails(req requests.Request, policyId int64, groupId int64, setId int64, useLocalFirewall bool) (goNext bool) {
 	var maxFails = this.MaxFails
 	var failBlockTimeout = this.FailBlockTimeout
 
 	if maxFails <= 0 {
 		maxFails = 10 // 默认10次
-	} else if maxFails <= 3 {
-		maxFails = 3 // 不能小于3，防止意外刷新出现
+	} else if maxFails <= 5 {
+		maxFails = 5 // 不能小于3，防止意外刷新出现
 	}
 	if failBlockTimeout <= 0 {
 		failBlockTimeout = 1800 // 默认1800s
@@ -128,7 +151,7 @@ func (this *JSCookieAction) increaseFails(req requests.Request, policyId int64, 
 
 	var countFails = counters.SharedCounter.IncreaseKey(key, 300)
 	if int(countFails) >= maxFails {
-		SharedIPBlackList.RecordIP(IPTypeAll, firewallconfigs.FirewallScopeService, req.WAFServerId(), req.WAFRemoteIP(), time.Now().Unix()+int64(failBlockTimeout), policyId, true, groupId, setId, "JS_COOKIE验证连续失败超过"+types.String(maxFails)+"次")
+		SharedIPBlackList.RecordIP(IPTypeAll, firewallconfigs.FirewallScopeServer, req.WAFServerId(), req.WAFRemoteIP(), time.Now().Unix()+int64(failBlockTimeout), policyId, useLocalFirewall, groupId, setId, "JS_COOKIE验证连续失败超过"+types.String(maxFails)+"次")
 		return false
 	}
 

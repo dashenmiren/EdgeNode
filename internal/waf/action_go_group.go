@@ -1,11 +1,10 @@
 package waf
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/types"
+	"net/http"
 )
 
 type GoGroupAction struct {

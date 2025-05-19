@@ -1,11 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"io"
 	"net/http"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 // 执行认证

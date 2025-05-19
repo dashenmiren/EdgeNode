@@ -1,3 +1,4 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build !arm64
 // +build !arm64
 
@@ -5,12 +6,11 @@ package nodes
 
 import (
 	"bytes"
-	"os"
-	"syscall"
-
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/logs"
+	"os"
+	"syscall"
 )
 
 // 处理异常
@@ -42,3 +42,4 @@ func (this *Node) handlePanic() {
 		logs.Println("NODE", "write to 'panic.log' failed: "+err.Error())
 	}
 }
+

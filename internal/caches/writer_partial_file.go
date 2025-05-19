@@ -1,17 +1,18 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches
 
 import (
 	"encoding/binary"
-	"io"
-	"os"
-	"sync"
-
 	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	"github.com/iwind/TeaGo/types"
+	"io"
+	"strings"
+	"sync"
 )
 
 type PartialFileWriter struct {
-	rawWriter *os.File
+	rawWriter *fsutils.File
 	key       string
 
 	metaHeaderSize int
@@ -30,9 +31,11 @@ type PartialFileWriter struct {
 
 	ranges    *PartialRanges
 	rangePath string
+
+	writtenBytes int64
 }
 
-func NewPartialFileWriter(rawWriter *os.File, key string, expiredAt int64, metaHeaderSize int, metaBodySize int64, isNew bool, isPartial bool, bodyOffset int64, ranges *PartialRanges, endFunc func()) *PartialFileWriter {
+func NewPartialFileWriter(rawWriter *fsutils.File, key string, expiredAt int64, metaHeaderSize int, metaBodySize int64, isNew bool, isPartial bool, bodyOffset int64, ranges *PartialRanges, endFunc func()) *PartialFileWriter {
 	return &PartialFileWriter{
 		key:            key,
 		rawWriter:      rawWriter,
@@ -53,9 +56,7 @@ func (this *PartialFileWriter) WriteHeader(data []byte) (n int, err error) {
 	if !this.isNew {
 		return
 	}
-	fsutils.WriteBegin()
 	n, err = this.rawWriter.Write(data)
-	fsutils.WriteEnd()
 	this.headerSize += int64(n)
 	if err != nil {
 		_ = this.Discard()
@@ -64,9 +65,7 @@ func (this *PartialFileWriter) WriteHeader(data []byte) (n int, err error) {
 }
 
 func (this *PartialFileWriter) AppendHeader(data []byte) error {
-	fsutils.WriteBegin()
 	_, err := this.rawWriter.Write(data)
-	fsutils.WriteEnd()
 	if err != nil {
 		_ = this.Discard()
 	} else {
@@ -103,9 +102,7 @@ func (this *PartialFileWriter) WriteHeaderLength(headerLength int) error {
 
 // Write 写入数据
 func (this *PartialFileWriter) Write(data []byte) (n int, err error) {
-	fsutils.WriteBegin()
 	n, err = this.rawWriter.Write(data)
-	fsutils.WriteEnd()
 	this.bodySize += int64(n)
 	if err != nil {
 		_ = this.Discard()
@@ -126,6 +123,32 @@ func (this *PartialFileWriter) WriteAt(offset int64, data []byte) error {
 		return nil
 	}
 
+	// prevent extending too much space in a single writing
+	var maxOffset = this.ranges.Max()
+	if offset-maxOffset > 16<<20 {
+		var extendSizePerStep int64 = 1 << 20
+		var maxExtendSize int64 = 32 << 20
+		if fsutils.DiskIsExtremelyFast() {
+			maxExtendSize = 128 << 20
+			extendSizePerStep = 4 << 20
+		} else if fsutils.DiskIsFast() {
+			maxExtendSize = 64 << 20
+			extendSizePerStep = 2 << 20
+		}
+		if offset-maxOffset > maxExtendSize {
+			stat, err := this.rawWriter.Stat()
+			if err != nil {
+				return nil
+			}
+
+			// extend min size to prepare for file tail
+			if stat.Size()+extendSizePerStep <= this.bodyOffset+offset+int64(len(data)) {
+				_ = this.rawWriter.Truncate(stat.Size() + extendSizePerStep)
+				return nil
+			}
+		}
+	}
+
 	if this.bodyOffset == 0 {
 		var keyLength = 0
 		if this.ranges.Version == 0 { // 以往的版本包含有Key
@@ -134,14 +157,24 @@ func (this *PartialFileWriter) WriteAt(offset int64, data []byte) error {
 		this.bodyOffset = SizeMeta + int64(keyLength) + this.headerSize
 	}
 
-	fsutils.WriteBegin()
-	_, err := this.rawWriter.WriteAt(data, this.bodyOffset+offset)
-	fsutils.WriteEnd()
+	n, err := this.rawWriter.WriteAt(data, this.bodyOffset+offset)
 	if err != nil {
 		return err
 	}
 
 	this.ranges.Add(offset, end)
+
+	// 保存ranges内容到文件，当新增数据达到一定量时就更新，是为了及时更新ranges文件，以便于其他请求能够及时读取到已经缓存的部分内容
+	this.writtenBytes += int64(n)
+	if this.writtenBytes > (1 << 20) {
+		this.writtenBytes = 0
+		if len(this.rangePath) > 0 {
+			if this.bodySize > 0 {
+				this.ranges.BodySize = this.bodySize
+			}
+			_ = this.ranges.WriteToFile(this.rangePath)
+		}
+	}
 
 	return nil
 }
@@ -149,6 +182,14 @@ func (this *PartialFileWriter) WriteAt(offset int64, data []byte) error {
 // SetBodyLength 设置内容总长度
 func (this *PartialFileWriter) SetBodyLength(bodyLength int64) {
 	this.bodySize = bodyLength
+}
+
+// SetContentMD5 设置内容MD5
+func (this *PartialFileWriter) SetContentMD5(contentMD5 string) {
+	if strings.Contains(contentMD5, "\n") || len(contentMD5) > 128 {
+		return
+	}
+	this.ranges.ContentMD5 = contentMD5
 }
 
 // WriteBodyLength 写入Body长度数据
@@ -177,12 +218,12 @@ func (this *PartialFileWriter) Close() error {
 		this.endFunc()
 	})
 
-	this.ranges.BodySize = this.bodySize
+	if this.bodySize > 0 {
+		this.ranges.BodySize = this.bodySize
+	}
 	err := this.ranges.WriteToFile(this.rangePath)
 	if err != nil {
-		fsutils.WriteBegin()
 		_ = this.rawWriter.Close()
-		fsutils.WriteEnd()
 		this.remove()
 		return err
 	}
@@ -191,25 +232,19 @@ func (this *PartialFileWriter) Close() error {
 	if this.isNew {
 		err = this.WriteHeaderLength(types.Int(this.headerSize))
 		if err != nil {
-			fsutils.WriteBegin()
 			_ = this.rawWriter.Close()
-			fsutils.WriteEnd()
 			this.remove()
 			return err
 		}
 		err = this.WriteBodyLength(this.bodySize)
 		if err != nil {
-			fsutils.WriteBegin()
 			_ = this.rawWriter.Close()
-			fsutils.WriteEnd()
 			this.remove()
 			return err
 		}
 	}
 
-	fsutils.WriteBegin()
 	err = this.rawWriter.Close()
-	fsutils.WriteEnd()
 	if err != nil {
 		this.remove()
 	}
@@ -223,13 +258,14 @@ func (this *PartialFileWriter) Discard() error {
 		this.endFunc()
 	})
 
-	fsutils.WriteBegin()
 	_ = this.rawWriter.Close()
-	fsutils.WriteEnd()
 
-	_ = os.Remove(this.rangePath)
+	SharedPartialRangesQueue.Delete(this.rangePath)
 
-	err := os.Remove(this.rawWriter.Name())
+	_ = fsutils.Remove(this.rangePath)
+
+	err := fsutils.Remove(this.rawWriter.Name())
+
 	return err
 }
 
@@ -258,7 +294,14 @@ func (this *PartialFileWriter) IsNew() bool {
 	return this.isNew && len(this.ranges.Ranges) == 0
 }
 
+func (this *PartialFileWriter) Ranges() *PartialRanges {
+	return this.ranges
+}
+
 func (this *PartialFileWriter) remove() {
-	_ = os.Remove(this.rawWriter.Name())
-	_ = os.Remove(this.rangePath)
+	_ = fsutils.Remove(this.rawWriter.Name())
+
+	SharedPartialRangesQueue.Delete(this.rangePath)
+
+	_ = fsutils.Remove(this.rangePath)
 }

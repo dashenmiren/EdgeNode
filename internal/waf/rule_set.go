@@ -2,16 +2,16 @@ package waf
 
 import (
 	"fmt"
-	"net/http"
-	"sort"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	wafutils "github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
+	"net/http"
+	"sort"
 )
 
 type RuleConnector = string
@@ -22,15 +22,16 @@ const (
 )
 
 type RuleSet struct {
-	Id          int64           `yaml:"id" json:"id"`
-	Code        string          `yaml:"code" json:"code"`
-	IsOn        bool            `yaml:"isOn" json:"isOn"`
-	Name        string          `yaml:"name" json:"name"`
-	Description string          `yaml:"description" json:"description"`
-	Rules       []*Rule         `yaml:"rules" json:"rules"`
-	Connector   RuleConnector   `yaml:"connector" json:"connector"` // rules connector
-	Actions     []*ActionConfig `yaml:"actions" json:"actions"`
-	IgnoreLocal bool            `yaml:"ignoreLocal" json:"ignoreLocal"`
+	Id                 int64           `yaml:"id" json:"id"`
+	Code               string          `yaml:"code" json:"code"`
+	IsOn               bool            `yaml:"isOn" json:"isOn"`
+	Name               string          `yaml:"name" json:"name"`
+	Description        string          `yaml:"description" json:"description"`
+	Rules              []*Rule         `yaml:"rules" json:"rules"`
+	Connector          RuleConnector   `yaml:"connector" json:"connector"` // rules connector
+	Actions            []*ActionConfig `yaml:"actions" json:"actions"`
+	IgnoreLocal        bool            `yaml:"ignoreLocal" json:"ignoreLocal"`
+	IgnoreSearchEngine bool            `yaml:"ignoreSearchEngine" json:"ignoreSearchEngine"`
 
 	actionCodes     []string
 	actionInstances []ActionInterface
@@ -226,7 +227,12 @@ func (this *RuleSet) PerformActions(waf *WAF, group *RuleGroup, req requests.Req
 func (this *RuleSet) MatchRequest(req requests.Request) (b bool, hasRequestBody bool, err error) {
 	// 是否忽略局域网IP
 	if this.IgnoreLocal && utils.IsLocalIP(req.WAFRemoteIP()) {
-		return false, hasRequestBody, nil
+		return
+	}
+
+	// 检查是否为搜索引擎
+	if this.IgnoreSearchEngine && wafutils.CheckSearchEngine(req.WAFRemoteIP()) {
+		return
 	}
 
 	if !this.hasRules {
@@ -279,6 +285,16 @@ func (this *RuleSet) MatchRequest(req requests.Request) (b bool, hasRequestBody 
 }
 
 func (this *RuleSet) MatchResponse(req requests.Request, resp *requests.Response) (b bool, hasRequestBody bool, err error) {
+	// 是否忽略局域网IP
+	if this.IgnoreLocal && utils.IsLocalIP(req.WAFRemoteIP()) {
+		return
+	}
+
+	// 检查是否为搜索引擎
+	if this.IgnoreSearchEngine && wafutils.CheckSearchEngine(req.WAFRemoteIP()) {
+		return
+	}
+
 	if !this.hasRules {
 		return false, hasRequestBody, nil
 	}

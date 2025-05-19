@@ -1,14 +1,15 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package firewalls
 
 import (
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"os"
 	"runtime"
 	"sync"
 	"time"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 )
 
 var currentFirewall FirewallInterface

@@ -1,9 +1,8 @@
 package waf
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"net/http"
 )
 
 type LogAction struct {

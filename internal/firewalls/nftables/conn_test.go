@@ -1,13 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build linux
 // +build linux
 
 package nftables_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"testing"
 )
 
 func TestConn_Test(t *testing.T) {

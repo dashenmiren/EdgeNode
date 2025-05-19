@@ -2,12 +2,13 @@ package caches
 
 import (
 	"errors"
-	"io"
-
 	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"io"
 )
 
 type MemoryReader struct {
+	BaseReader
+
 	item *MemoryItem
 
 	offset int

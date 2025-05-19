@@ -1,10 +1,11 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package teaconst
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"os"
 	"strings"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 )
 
 var (

@@ -2,11 +2,10 @@ package waf
 
 import (
 	"encoding/json"
-	"reflect"
-	"sync/atomic"
-
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/iwind/TeaGo/maps"
+	"reflect"
+	"sync/atomic"
 )
 
 var seedActionId int64 = 1

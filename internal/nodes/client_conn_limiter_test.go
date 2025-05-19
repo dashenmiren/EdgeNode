@@ -1,9 +1,10 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
-	"testing"
-
 	"github.com/iwind/TeaGo/logs"
+	"testing"
 )
 
 func TestClientConnLimiter_Add(t *testing.T) {

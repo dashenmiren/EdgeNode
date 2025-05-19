@@ -1,13 +1,14 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nftables_test
 
 import (
-	"net"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"net"
+	"testing"
+	"time"
 )
 
 func TestExpiration_Add(t *testing.T) {

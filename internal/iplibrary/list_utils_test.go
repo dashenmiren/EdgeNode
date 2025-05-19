@@ -1,10 +1,11 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package iplibrary
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 func TestIPIsAllowed(t *testing.T) {
@@ -13,7 +14,7 @@ func TestIPIsAllowed(t *testing.T) {
 	}
 
 	var manager = NewIPListManager()
-	manager.init()
+	manager.Init()
 
 	var before = time.Now()
 	defer func() {

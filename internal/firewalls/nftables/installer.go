@@ -1,20 +1,20 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
 //go:build linux
 
 package nftables
 
 import (
 	"fmt"
-	"os"
-	"runtime"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/logs"
+	"os"
+	"runtime"
+	"time"
 )
 
 func init() {
@@ -90,18 +90,26 @@ func (this *Installer) Install() error {
 	}
 
 	var cmd *executils.Cmd
+	var aptCmd *executils.Cmd
 
 	// check dnf
-	dnfExe, err := executils.LookPath("dnf")
-	if err == nil {
-		cmd = executils.NewCmd(dnfExe, "-y", "install", "nftables")
+	{
+		dnfExe, err := executils.LookPath("dnf")
+		if err == nil {
+			cmd = executils.NewCmd(dnfExe, "-y", "install", "nftables")
+		}
 	}
 
 	// check apt
 	if cmd == nil {
-		aptExe, err := executils.LookPath("apt")
+		aptGetExe, err := executils.LookPath("apt-get")
 		if err == nil {
-			cmd = executils.NewCmd(aptExe, "install", "nftables")
+			cmd = executils.NewCmd(aptGetExe, "install", "nftables")
+		}
+
+		aptExe, aptErr := executils.LookPath("apt")
+		if aptErr == nil {
+			aptCmd = executils.NewCmd(aptExe, "install", "nftables")
 		}
 	}
 
@@ -119,9 +127,19 @@ func (this *Installer) Install() error {
 
 	cmd.WithTimeout(10 * time.Minute)
 	cmd.WithStderr()
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("%w: %s", err, cmd.Stderr())
+		// try 'apt-get' instead of 'apt'
+		if aptCmd != nil {
+			cmd = aptCmd
+			cmd.WithTimeout(10 * time.Minute)
+			cmd.WithStderr()
+			err = cmd.Run()
+		}
+
+		if err != nil {
+			return fmt.Errorf("%w: %s", err, cmd.Stderr())
+		}
 	}
 
 	remotelogs.Println("NFTABLES", "installed nftables with command '"+cmd.String()+"' successfully")

@@ -1,13 +1,15 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore
 
 import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"sync"
-
+	"fmt"
 	"github.com/cockroachdb/pebble"
 	"github.com/iwind/TeaGo/types"
+	"sync"
 )
 
 const (
@@ -25,6 +27,7 @@ type Table[T any] struct {
 	db           *DB
 	encoder      ValueEncoder[T]
 	fieldNames   []string
+	isClosed     bool
 
 	mu *sync.RWMutex
 }
@@ -63,7 +66,15 @@ func (this *Table[T]) DB() *DB {
 	return this.db
 }
 
+func (this *Table[T]) Encoder() ValueEncoder[T] {
+	return this.encoder
+}
+
 func (this *Table[T]) Set(key string, value T) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
 	if len(key) > KeyMaxLength {
 		return ErrKeyTooLong
 	}
@@ -74,7 +85,45 @@ func (this *Table[T]) Set(key string, value T) error {
 	}
 
 	return this.WriteTx(func(tx *Tx[T]) error {
-		return this.set(tx, key, valueBytes, value)
+		return this.set(tx, key, valueBytes, value, false, false)
+	})
+}
+
+func (this *Table[T]) SetSync(key string, value T) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	if len(key) > KeyMaxLength {
+		return ErrKeyTooLong
+	}
+
+	valueBytes, err := this.encoder.Encode(value)
+	if err != nil {
+		return err
+	}
+
+	return this.WriteTxSync(func(tx *Tx[T]) error {
+		return this.set(tx, key, valueBytes, value, false, true)
+	})
+}
+
+func (this *Table[T]) Insert(key string, value T) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	if len(key) > KeyMaxLength {
+		return ErrKeyTooLong
+	}
+
+	valueBytes, err := this.encoder.Encode(value)
+	if err != nil {
+		return err
+	}
+
+	return this.WriteTx(func(tx *Tx[T]) error {
+		return this.set(tx, key, valueBytes, value, true, false)
 	})
 }
 
@@ -93,9 +142,13 @@ func (this *Table[T]) ComposeFieldKey(keyBytes []byte, fieldName string, fieldVa
 }
 
 func (this *Table[T]) Exist(key string) (found bool, err error) {
+	if this.isClosed {
+		return false, NewTableClosedErr(this.name)
+	}
+
 	_, closer, err := this.db.store.rawDB.Get(this.FullKey(key))
 	if err != nil {
-		if IsKeyNotFound(err) {
+		if IsNotFound(err) {
 			return false, nil
 		}
 		return false, err
@@ -108,6 +161,11 @@ func (this *Table[T]) Exist(key string) (found bool, err error) {
 }
 
 func (this *Table[T]) Get(key string) (value T, err error) {
+	if this.isClosed {
+		err = NewTableClosedErr(this.name)
+		return
+	}
+
 	err = this.ReadTx(func(tx *Tx[T]) error {
 		resultValue, getErr := this.get(tx, key)
 		if getErr == nil {
@@ -120,6 +178,10 @@ func (this *Table[T]) Get(key string) (value T, err error) {
 }
 
 func (this *Table[T]) Delete(key ...string) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
 	if len(key) == 0 {
 		return nil
 	}
@@ -130,12 +192,19 @@ func (this *Table[T]) Delete(key ...string) error {
 }
 
 func (this *Table[T]) ReadTx(fn func(tx *Tx[T]) error) error {
-	var tx = NewTx[T](this, true)
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	tx, err := NewTx[T](this, true)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		_ = tx.Close()
 	}()
 
-	err := fn(tx)
+	err = fn(tx)
 	if err != nil {
 		return err
 	}
@@ -144,12 +213,19 @@ func (this *Table[T]) ReadTx(fn func(tx *Tx[T]) error) error {
 }
 
 func (this *Table[T]) WriteTx(fn func(tx *Tx[T]) error) error {
-	var tx = NewTx[T](this, false)
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	tx, err := NewTx[T](this, false)
+	if err != nil {
+		return err
+	}
 	defer func() {
 		_ = tx.Close()
 	}()
 
-	err := fn(tx)
+	err = fn(tx)
 	if err != nil {
 		return err
 	}
@@ -157,11 +233,44 @@ func (this *Table[T]) WriteTx(fn func(tx *Tx[T]) error) error {
 	return tx.Commit()
 }
 
+func (this *Table[T]) WriteTxSync(fn func(tx *Tx[T]) error) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	tx, err := NewTx[T](this, false)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Close()
+	}()
+
+	err = fn(tx)
+	if err != nil {
+		return err
+	}
+
+	return tx.CommitSync()
+}
+
 func (this *Table[T]) Truncate() error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
 	this.mu.Lock()
 	defer this.mu.Unlock()
 
 	return this.db.store.rawDB.DeleteRange(this.Namespace(), append(this.Namespace(), 0xFF), DefaultWriteOptions)
+}
+
+func (this *Table[T]) DeleteRange(start string, end string) error {
+	if this.isClosed {
+		return NewTableClosedErr(this.name)
+	}
+
+	return this.db.store.rawDB.DeleteRange(this.FullKeyBytes([]byte(start)), this.FullKeyBytes([]byte(end)), DefaultWriteOptions)
 }
 
 func (this *Table[T]) Query() *Query[T] {
@@ -226,6 +335,7 @@ func (this *Table[T]) DecodeFieldKey(fieldName string, fieldKey []byte) (fieldVa
 }
 
 func (this *Table[T]) Close() error {
+	this.isClosed = true
 	return nil
 }
 
@@ -240,7 +350,7 @@ func (this *Table[T]) deleteKeys(tx *Tx[T], key ...string) error {
 			if len(this.fieldNames) > 0 {
 				valueBytes, closer, getErr := batch.Get(keyBytes)
 				if getErr != nil {
-					if IsKeyNotFound(getErr) {
+					if IsNotFound(getErr) {
 						return nil
 					}
 					return getErr
@@ -251,7 +361,7 @@ func (this *Table[T]) deleteKeys(tx *Tx[T], key ...string) error {
 
 				value, decodeErr := this.encoder.Decode(valueBytes)
 				if decodeErr != nil {
-					return decodeErr
+					return fmt.Errorf("decode value failed: %w", decodeErr)
 				}
 
 				for _, fieldName := range this.fieldNames {
@@ -282,8 +392,12 @@ func (this *Table[T]) deleteKeys(tx *Tx[T], key ...string) error {
 	return nil
 }
 
-func (this *Table[T]) set(tx *Tx[T], key string, valueBytes []byte, value T) error {
+func (this *Table[T]) set(tx *Tx[T], key string, valueBytes []byte, value T, insertOnly bool, syncMode bool) error {
 	var keyBytes = this.FullKey(key)
+	var writeOptions = DefaultWriteOptions
+	if syncMode {
+		writeOptions = DefaultWriteSyncOptions
+	}
 
 	var batch = tx.batch
 
@@ -291,27 +405,30 @@ func (this *Table[T]) set(tx *Tx[T], key string, valueBytes []byte, value T) err
 	var oldValue T
 	var oldFound bool
 	var countFields = len(this.fieldNames)
-	if countFields > 0 {
-		oldValueBytes, closer, getErr := batch.Get(keyBytes)
-		if getErr != nil {
-			if !IsKeyNotFound(getErr) {
-				return getErr
-			}
-		} else {
-			defer func() {
-				_ = closer.Close()
-			}()
 
-			var decodeErr error
-			oldValue, decodeErr = this.encoder.Decode(oldValueBytes)
-			if decodeErr != nil {
-				return decodeErr
+	if !insertOnly {
+		if countFields > 0 {
+			oldValueBytes, closer, getErr := batch.Get(keyBytes)
+			if getErr != nil {
+				if !IsNotFound(getErr) {
+					return getErr
+				}
+			} else {
+				defer func() {
+					_ = closer.Close()
+				}()
+
+				var decodeErr error
+				oldValue, decodeErr = this.encoder.Decode(oldValueBytes)
+				if decodeErr != nil {
+					return fmt.Errorf("decode value failed: %w", decodeErr)
+				}
+				oldFound = true
 			}
-			oldFound = true
 		}
 	}
 
-	setErr := batch.Set(keyBytes, valueBytes, DefaultWriteOptions)
+	setErr := batch.Set(keyBytes, valueBytes, writeOptions)
 	if setErr != nil {
 		return setErr
 	}
@@ -343,14 +460,14 @@ func (this *Table[T]) set(tx *Tx[T], key string, valueBytes []byte, value T) err
 					// skip the field
 					continue
 				}
-				deleteFieldErr := batch.Delete(oldFieldKeyBytes, DefaultWriteOptions)
+				deleteFieldErr := batch.Delete(oldFieldKeyBytes, writeOptions)
 				if deleteFieldErr != nil {
 					return deleteFieldErr
 				}
 			}
 
 			// set new field key
-			setFieldErr := batch.Set(newFieldKeyBytes, nil, DefaultWriteOptions)
+			setFieldErr := batch.Set(newFieldKeyBytes, nil, writeOptions)
 			if setFieldErr != nil {
 				return setFieldErr
 			}
@@ -375,7 +492,7 @@ func (this *Table[T]) getWithKeyBytes(tx *Tx[T], keyBytes []byte) (value T, err 
 
 	resultValue, decodeErr := this.encoder.Decode(valueBytes)
 	if decodeErr != nil {
-		return value, decodeErr
+		return value, fmt.Errorf("decode value failed: %w", decodeErr)
 	}
 	value = resultValue
 	return

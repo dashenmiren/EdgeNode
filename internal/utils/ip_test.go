@@ -1,20 +1,10 @@
 package utils_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/assert"
+	"testing"
 )
-
-func TestIP2Long(t *testing.T) {
-	t.Log(utils.IP2Long("0.0.0.0"))
-	t.Log(utils.IP2Long("1.0.0.0"))
-	t.Log(utils.IP2Long("0.0.0.0.0"))
-	t.Log(utils.IP2Long("2001:db8:0:1::101"))
-	t.Log(utils.IP2Long("2001:db8:0:1::102"))
-	t.Log(utils.IP2Long("::1"))
-}
 
 func TestIsLocalIP(t *testing.T) {
 	var a = assert.NewAssertion(t)

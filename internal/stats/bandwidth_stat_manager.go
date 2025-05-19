@@ -1,23 +1,24 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package stats
 
 import (
 	"encoding/json"
-	"os"
-	"sync"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/logs"
 	"github.com/iwind/TeaGo/types"
 	timeutil "github.com/iwind/TeaGo/utils/time"
+	"os"
+	"sync"
+	"time"
 )
 
 var SharedBandwidthStatManager = NewBandwidthStatManager()
@@ -75,16 +76,27 @@ type BandwidthStatManager struct {
 
 	ticker *time.Ticker
 	locker sync.Mutex
+
+	cacheFile string
 }
 
 func NewBandwidthStatManager() *BandwidthStatManager {
 	return &BandwidthStatManager{
-		m:      map[string]*BandwidthStat{},
-		ticker: time.NewTicker(1 * time.Minute), // 时间小于1分钟是为了更快速地上传结果
+		m:         map[string]*BandwidthStat{},
+		ticker:    time.NewTicker(1 * time.Minute), // 时间小于1分钟是为了更快速地上传结果
+		cacheFile: Tea.Root + "/data/stat_bandwidth.cache",
 	}
 }
 
 func (this *BandwidthStatManager) Start() {
+	// 初始化DAU统计
+	{
+		err := SharedDAUManager.Init()
+		if err != nil {
+			remotelogs.Error("DAU_MANAGER", "initialize DAU manager failed: "+err.Error())
+		}
+	}
+
 	// 从上次数据中恢复
 	this.locker.Lock()
 	this.recover()
@@ -129,6 +141,8 @@ func (this *BandwidthStatManager) Loop() error {
 		this.pbStats = nil
 	}
 
+	var ipStatMap = SharedDAUManager.ReadStatMap()
+
 	this.locker.Lock()
 	for key, stat := range this.m {
 		if stat.Day < day || stat.TimeAt < currentTime {
@@ -140,6 +154,8 @@ func (this *BandwidthStatManager) Loop() error {
 			if stat.AttackBytes > stat.TotalBytes {
 				stat.AttackBytes = stat.TotalBytes
 			}
+
+			var ipKey = "server_" + stat.Day + "_" + types.String(stat.ServerId)
 
 			pbStats = append(pbStats, &pb.ServerBandwidthStat{
 				Id:                        0,
@@ -155,6 +171,7 @@ func (this *BandwidthStatManager) Loop() error {
 				CountCachedRequests:       stat.CountCachedRequests,
 				CountAttackRequests:       stat.CountAttackRequests,
 				CountWebsocketConnections: stat.CountWebsocketConnections,
+				CountIPs:                  ipStatMap[ipKey],
 				UserPlanId:                stat.UserPlanId,
 				NodeRegionId:              regionId,
 			})
@@ -283,8 +300,8 @@ func (this *BandwidthStatManager) Save() error {
 		return err
 	}
 
-	_ = os.Remove(this.cacheFile())
-	return os.WriteFile(this.cacheFile(), data, 0666)
+	_ = os.Remove(this.cacheFile)
+	return os.WriteFile(this.cacheFile, data, 0666)
 }
 
 // Cancel 取消上传
@@ -294,7 +311,7 @@ func (this *BandwidthStatManager) Cancel() {
 
 // 从本地缓存文件中恢复数据
 func (this *BandwidthStatManager) recover() {
-	cacheData, err := os.ReadFile(this.cacheFile())
+	cacheData, err := os.ReadFile(this.cacheFile)
 	if err == nil {
 		var m = map[string]*BandwidthStat{}
 		err = json.Unmarshal(cacheData, &m)
@@ -316,12 +333,6 @@ func (this *BandwidthStatManager) recover() {
 				}
 			}
 		}
-		_ = os.Remove(this.cacheFile())
+		_ = os.Remove(this.cacheFile)
 	}
-}
-
-// 获取缓存文件
-// 不能在init()中初始化，避免无法获得正确的路径
-func (this *BandwidthStatManager) cacheFile() string {
-	return Tea.Root + "/data/bandwidth.dat"
 }

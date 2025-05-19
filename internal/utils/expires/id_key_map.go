@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package expires
 
 type IdKeyMap struct {
@@ -55,4 +57,12 @@ func (this *IdKeyMap) DeleteKey(key string) {
 
 func (this *IdKeyMap) Len() int {
 	return len(this.idKeys)
+}
+
+func (this *IdKeyMap) IdKeys() map[int64]string {
+	return this.idKeys
+}
+
+func (this *IdKeyMap) KeyIds() map[string]int64 {
+	return this.keyIds
 }

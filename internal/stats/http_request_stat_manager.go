@@ -1,28 +1,27 @@
 package stats
 
 import (
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
-
 	iplib "github.com/dashenmiren/EdgeCommon/pkg/iplibrary"
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/monitor"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/utils/agents"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 	timeutil "github.com/iwind/TeaGo/utils/time"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 type StatItem struct {

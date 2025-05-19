@@ -1,9 +1,8 @@
 package nodes
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"testing"
 )
 
 func TestListener_Listen(t *testing.T) {

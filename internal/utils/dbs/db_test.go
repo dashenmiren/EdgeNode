@@ -1,10 +1,11 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package dbs_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
 	"net/url"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
 )
 
 func TestParseDSN(t *testing.T) {

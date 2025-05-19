@@ -2,17 +2,17 @@ package nodes
 
 import (
 	"bytes"
-	"strings"
-	"time"
-	"unicode/utf8"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"strings"
+	"time"
+	"unicode/utf8"
 )
 
 var sharedHTTPAccessLogQueue = NewHTTPAccessLogQueue()
@@ -27,7 +27,7 @@ type HTTPAccessLogQueue struct {
 // NewHTTPAccessLogQueue 获取新对象
 func NewHTTPAccessLogQueue() *HTTPAccessLogQueue {
 	// 队列中最大的值，超出此数量的访问日志会被丢弃
-	var maxSize = 2_000 * (1 + utils.SystemMemoryGB()/2)
+	var maxSize = 2_000 * (1 + memutils.SystemMemoryGB()/2)
 	if maxSize > 20_000 {
 		maxSize = 20_000
 	}

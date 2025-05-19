@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/dashenmiren/EdgeNode/internal/nodes"
+	"testing"
 )
 
 func TestHTTPCacheTaskManager_Loop(t *testing.T) {

@@ -2,13 +2,12 @@ package checkpoints
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/types"
 )
 
 func TestRequestBodyCheckpoint_RequestValue(t *testing.T) {

@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches
 
 import (
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 	"math/big"
 	"sync"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 const HashMapSharding = 31
@@ -45,7 +46,7 @@ func NewSQLiteFileListHashMap() *SQLiteFileListHashMap {
 
 func (this *SQLiteFileListHashMap) Load(db *SQLiteFileListDB) error {
 	// 如果系统内存过小，我们不缓存
-	if utils.SystemMemoryGB() < 3 {
+	if memutils.SystemMemoryGB() < 3 {
 		return nil
 	}
 

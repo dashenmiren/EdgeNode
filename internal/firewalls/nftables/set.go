@@ -1,15 +1,15 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build linux
 
 package nftables
 
 import (
 	"errors"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	nft "github.com/google/nftables"
 	"net"
 	"strings"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	nft "github.com/google/nftables"
 )
 
 const MaxSetNameLength = 15

@@ -1,12 +1,11 @@
 package caches_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/iwind/TeaGo/Tea"
+	"testing"
 )
 
 func TestManager_UpdatePolicies(t *testing.T) {

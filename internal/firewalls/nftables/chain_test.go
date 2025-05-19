@@ -1,12 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build linux
 
 package nftables_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 	"net"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
 )
 
 func getIPv4Chain(t *testing.T) *nftables.Chain {

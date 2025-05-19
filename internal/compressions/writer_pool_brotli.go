@@ -1,11 +1,10 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions
 
 import (
-	"io"
-
-	"github.com/andybalholm/brotli"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"io"
 )
 
 var sharedBrotliWriterPool *WriterPool
@@ -15,11 +14,7 @@ func init() {
 		return
 	}
 
-	var maxSize = utils.SystemMemoryGB() * 256
-	if maxSize == 0 {
-		maxSize = 256
-	}
-	sharedBrotliWriterPool = NewWriterPool(maxSize, brotli.BestCompression, func(writer io.Writer, level int) (Writer, error) {
-		return newBrotliWriter(writer, level)
+	sharedBrotliWriterPool = NewWriterPool(CalculatePoolSize(), func(writer io.Writer, level int) (Writer, error) {
+		return newBrotliWriter(writer)
 	})
 }

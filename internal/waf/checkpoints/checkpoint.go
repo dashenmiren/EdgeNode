@@ -1,9 +1,8 @@
 package checkpoints
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"net/http"
 )
 
 type Checkpoint struct {

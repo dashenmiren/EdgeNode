@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package jsonutils_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/jsonutils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/maps"
+	"testing"
 )
 
 func TestEqual(t *testing.T) {

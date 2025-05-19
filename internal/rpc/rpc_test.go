@@ -1,15 +1,16 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package rpc_test
 
 import (
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	_ "github.com/iwind/TeaGo/bootstrap"
 	timeutil "github.com/iwind/TeaGo/utils/time"
+	"sync"
+	"testing"
+	"time"
 )
 
 func TestRPCConcurrentCall(t *testing.T) {

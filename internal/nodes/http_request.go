@@ -5,6 +5,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
+	iplib "github.com/dashenmiren/EdgeCommon/pkg/iplibrary"
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/metrics"
+	"github.com/dashenmiren/EdgeNode/internal/stats"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/iwind/TeaGo/lists"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"net"
 	"net/http"
@@ -14,18 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
-	iplib "github.com/dashenmiren/EdgeCommon/pkg/iplibrary"
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/metrics"
-	"github.com/dashenmiren/EdgeNode/internal/stats"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/lists"
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
 )
 
 // 环境变量
@@ -51,6 +51,7 @@ type HTTPRequest struct {
 	isHealthCheck bool
 
 	// 共享参数
+	// DO NOT change the variable after created
 	nodeConfig *nodeconfigs.NodeConfig
 
 	// ln request
@@ -102,6 +103,8 @@ type HTTPRequest struct {
 
 	disableLog bool // 是否在当前请求中关闭Log
 	forceLog   bool // 是否强制记录日志
+
+	disableMetrics bool // 不记录统计指标
 
 	isHijacked bool
 
@@ -398,7 +401,7 @@ func (this *HTTPRequest) doBegin() {
 
 	// Reverse Proxy
 	if this.reverseProxyRef != nil && this.reverseProxyRef.IsOn && this.reverseProxy != nil && this.reverseProxy.IsOn {
-		this.doReverseProxy()
+		_ = this.doReverseProxy(true)
 		return
 	}
 
@@ -454,8 +457,11 @@ func (this *HTTPRequest) doEnd() {
 
 		stats.SharedTrafficStatManager.Add(this.ReqServer.UserId, this.ReqServer.Id, this.ReqHost, totalBytes, cachedBytes, 1, countCached, countAttacks, attackBytes, countWebsocketConnections, this.ReqServer.ShouldCheckTrafficLimit(), this.ReqServer.PlanId())
 
+		// unique IP
+		stats.SharedDAUManager.AddIP(this.ReqServer.Id, this.requestRemoteAddr(true))
+
 		// 指标
-		if metrics.SharedManager.HasHTTPMetrics() {
+		if !this.disableMetrics && metrics.SharedManager.HasHTTPMetrics() {
 			this.doMetricsResponse()
 		}
 
@@ -501,6 +507,8 @@ func (this *HTTPRequest) configureWeb(web *serverconfigs.HTTPWebConfig, isTop bo
 	}
 
 	// pages
+	this.web.EnableGlobalPages = web.EnableGlobalPages
+
 	if len(web.Pages) > 0 {
 		this.web.Pages = web.Pages
 	}
@@ -822,6 +830,9 @@ func (this *HTTPRequest) Format(source string) string {
 		case "requestTime":
 			return fmt.Sprintf("%.6f", this.requestCost)
 		case "requestMethod":
+			if len(this.RawReq.Method) == 0 {
+				return http.MethodGet
+			}
 			return this.RawReq.Method
 		case "requestFilename":
 			filename := this.requestFilename()
@@ -1677,7 +1688,29 @@ func (this *HTTPRequest) setForwardHeaders(header http.Header) {
 		if ok && len(forwardedFor) > 0 { // already exists
 			_, hasForwardHeader := this.RawReq.Header["X-Forwarded-For"]
 			if hasForwardHeader {
-				header["X-Forwarded-For"] = []string{strings.Join(forwardedFor, ", ") + ", " + rawRemoteAddr}
+				// 限制转发的XFF中地址数量
+				if this.nodeConfig != nil && this.nodeConfig.GlobalServerConfig != nil && this.nodeConfig.GlobalServerConfig.HTTPAll.XFFMaxAddresses > 0 {
+					var maxForwardedAddresses = this.nodeConfig.GlobalServerConfig.HTTPAll.XFFMaxAddresses
+					if maxForwardedAddresses == 1 {
+						forwardedFor = nil
+					} else {
+						var forwardedAddresses []string
+						for _, forwardedHeader := range forwardedFor {
+							if len(forwardedHeader) > 0 {
+								forwardedAddresses = append(forwardedAddresses, strings.Split(forwardedHeader, ", ")...)
+							}
+						}
+						if len(forwardedAddresses) >= maxForwardedAddresses {
+							forwardedFor = []string{strings.Join(forwardedAddresses[:maxForwardedAddresses-1], ", ")}
+						}
+					}
+				}
+
+				if len(forwardedFor) > 0 {
+					header["X-Forwarded-For"] = []string{strings.Join(forwardedFor, ", ") + ", " + rawRemoteAddr}
+				} else {
+					header["X-Forwarded-For"] = []string{rawRemoteAddr}
+				}
 			}
 		} else {
 			var clientRemoteAddr = this.requestRemoteAddr(true)
@@ -1975,20 +2008,17 @@ func (this *HTTPRequest) addError(err error) {
 }
 
 // 计算合适的buffer size
-func (this *HTTPRequest) bytePool(contentLength int64) *utils.BytePool {
+func (this *HTTPRequest) bytePool(contentLength int64) *bytepool.Pool {
 	if contentLength < 0 {
-		return utils.BytePool16k
+		return bytepool.Pool16k
 	}
-	if contentLength < 8192 { // 8K
-		return utils.BytePool1k
+	if contentLength < 8192 { // < 8K
+		return bytepool.Pool1k
 	}
-	if contentLength < 32768 { // 32K
-		return utils.BytePool16k
+	if contentLength < 32768 { // < 32K
+		return bytepool.Pool16k
 	}
-	if contentLength < 131072 { // 128K
-		return utils.BytePool32k
-	}
-	return utils.BytePool32k
+	return bytepool.Pool32k
 }
 
 // 检查是否可以忽略错误
@@ -1998,20 +2028,21 @@ func (this *HTTPRequest) canIgnore(err error) bool {
 	}
 
 	// 已读到头
-	if err == io.EOF || err == io.ErrUnexpectedEOF {
+	if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
 
 	// 网络错误
-	_, ok := err.(*net.OpError)
+	var opErr *net.OpError
+	ok := errors.As(err, &opErr)
 	if ok {
 		return true
 	}
 
 	// 客户端主动取消
-	if err == errWritingToClient ||
-		err == context.Canceled ||
-		err == io.ErrShortWrite ||
+	if errors.Is(err, errWritingToClient) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, io.ErrShortWrite) ||
 		strings.Contains(err.Error(), "write: connection") ||
 		strings.Contains(err.Error(), "write: broken pipe") ||
 		strings.Contains(err.Error(), "write tcp") {

@@ -1,9 +1,8 @@
 package utils
 
 import (
-	"testing"
-
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"testing"
 )
 
 func TestServiceManager_Log(t *testing.T) {

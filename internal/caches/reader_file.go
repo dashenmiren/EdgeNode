@@ -3,15 +3,17 @@ package caches
 import (
 	"encoding/binary"
 	"errors"
-	"io"
-	"os"
-
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 	"github.com/iwind/TeaGo/types"
+	"io"
+	"os"
 )
 
 type FileReader struct {
-	fp *os.File
+	BaseReader
+
+	fp *fsutils.File
 
 	openFile      *OpenFile
 	openFileCache *OpenFileCache
@@ -29,7 +31,7 @@ type FileReader struct {
 	isClosed bool
 }
 
-func NewFileReader(fp *os.File) *FileReader {
+func NewFileReader(fp *fsutils.File) *FileReader {
 	return &FileReader{fp: fp}
 }
 
@@ -306,7 +308,8 @@ func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callba
 	}
 
 	for {
-		n, err := this.fp.Read(buf)
+		var n int
+		n, err = this.fp.Read(buf)
 		if n > 0 {
 			var n2 = int(end-offset) + 1
 			if n2 <= n {
@@ -342,6 +345,33 @@ func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callba
 
 	isOk = true
 
+	// 读取下一个Reader
+	if this.nextReader != nil {
+		defer func() {
+			_ = this.nextReader.Close()
+		}()
+
+		for {
+			var n int
+			n, err = this.nextReader.Read(buf)
+			if n > 0 {
+				goNext, writeErr := callback(n)
+				if writeErr != nil {
+					return writeErr
+				}
+				if !goNext {
+					break
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					return err
+				}
+				break
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -352,7 +382,7 @@ func (this *FileReader) ContainsRange(r rangeutils.Range) (r2 rangeutils.Range, 
 
 // FP 原始的文件句柄
 func (this *FileReader) FP() *os.File {
-	return this.fp
+	return this.fp.Raw()
 }
 
 func (this *FileReader) Close() error {
@@ -367,7 +397,7 @@ func (this *FileReader) Close() error {
 		} else {
 			var cacheMeta = make([]byte, len(this.meta))
 			copy(cacheMeta, this.meta)
-			this.openFileCache.Put(this.fp.Name(), NewOpenFile(this.fp, cacheMeta, this.header, this.LastModified(), this.bodySize))
+			this.openFileCache.Put(this.fp.Name(), NewOpenFile(this.fp.Raw(), cacheMeta, this.header, this.LastModified(), this.bodySize))
 		}
 		return nil
 	}
@@ -375,7 +405,7 @@ func (this *FileReader) Close() error {
 	return this.fp.Close()
 }
 
-func (this *FileReader) readToBuff(fp *os.File, buf []byte) (ok bool, err error) {
+func (this *FileReader) readToBuff(fp *fsutils.File, buf []byte) (ok bool, err error) {
 	n, err := fp.Read(buf)
 	if err != nil {
 		return false, err
@@ -394,5 +424,5 @@ func (this *FileReader) discard() error {
 	}
 
 	// remove file
-	return os.Remove(this.fp.Name())
+	return fsutils.Remove(this.fp.Name())
 }

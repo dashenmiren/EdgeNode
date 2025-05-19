@@ -4,11 +4,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 	"github.com/iwind/TeaGo/types"
+	"io"
 )
 
 type PartialFileReader struct {
@@ -18,7 +17,7 @@ type PartialFileReader struct {
 	rangePath string
 }
 
-func NewPartialFileReader(fp *os.File) *PartialFileReader {
+func NewPartialFileReader(fp *fsutils.File) *PartialFileReader {
 	return &PartialFileReader{
 		FileReader: NewFileReader(fp),
 		rangePath:  PartialRangesFilePath(fp.Name()),
@@ -35,7 +34,7 @@ func (this *PartialFileReader) InitAutoDiscard(autoDiscard bool) error {
 		this.header = this.openFile.header
 	}
 
-	isOk := false
+	var isOk = false
 
 	if autoDiscard {
 		defer func() {
@@ -55,9 +54,9 @@ func (this *PartialFileReader) InitAutoDiscard(autoDiscard bool) error {
 	var buf = this.meta
 	if len(buf) == 0 {
 		buf = make([]byte, SizeMeta)
-		ok, err := this.readToBuff(this.fp, buf)
-		if err != nil {
-			return err
+		ok, readErr := this.readToBuff(this.fp, buf)
+		if readErr != nil {
+			return readErr
 		}
 		if !ok {
 			return ErrNotFound
@@ -74,10 +73,10 @@ func (this *PartialFileReader) InitAutoDiscard(autoDiscard bool) error {
 	this.status = status
 
 	// URL
-	urlLength := binary.BigEndian.Uint32(buf[SizeExpiresAt+SizeStatus : SizeExpiresAt+SizeStatus+SizeURLLength])
+	var urlLength = binary.BigEndian.Uint32(buf[SizeExpiresAt+SizeStatus : SizeExpiresAt+SizeStatus+SizeURLLength])
 
 	// header
-	headerSize := int(binary.BigEndian.Uint32(buf[SizeExpiresAt+SizeStatus+SizeURLLength : SizeExpiresAt+SizeStatus+SizeURLLength+SizeHeaderLength]))
+	var headerSize = int(binary.BigEndian.Uint32(buf[SizeExpiresAt+SizeStatus+SizeURLLength : SizeExpiresAt+SizeStatus+SizeURLLength+SizeHeaderLength]))
 	if headerSize == 0 {
 		return nil
 	}
@@ -97,7 +96,7 @@ func (this *PartialFileReader) InitAutoDiscard(autoDiscard bool) error {
 	if this.openFileCache != nil && len(this.header) == 0 {
 		if headerSize > 0 && headerSize <= 512 {
 			this.header = make([]byte, headerSize)
-			_, err := this.fp.Seek(this.headerOffset, io.SeekStart)
+			_, err = this.fp.Seek(this.headerOffset, io.SeekStart)
 			if err != nil {
 				return err
 			}
@@ -141,7 +140,13 @@ func (this *PartialFileReader) Ranges() *PartialRanges {
 	return this.ranges
 }
 
+func (this *PartialFileReader) IsCompleted() bool {
+	return this.ranges != nil && this.ranges.IsCompleted()
+}
+
 func (this *PartialFileReader) discard() error {
-	_ = os.Remove(this.rangePath)
+	SharedPartialRangesQueue.Delete(this.rangePath)
+	_ = fsutils.Remove(this.rangePath)
+
 	return this.FileReader.discard()
 }

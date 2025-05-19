@@ -1,13 +1,14 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
+	stringutil "github.com/iwind/TeaGo/utils/string"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
-	stringutil "github.com/iwind/TeaGo/utils/string"
 )
 
 func TestBrotliWriter_LargeFile(t *testing.T) {

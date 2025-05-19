@@ -1,22 +1,24 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches
 
 import (
 	"errors"
 	"fmt"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/types"
 	"net"
 	"net/url"
 	"os"
 	"runtime"
 	"strings"
 	"time"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/iwind/TeaGo/logs"
-	"github.com/iwind/TeaGo/types"
 )
 
 type SQLiteFileListDB struct {
@@ -63,7 +65,7 @@ func (this *SQLiteFileListDB) Open(dbPath string) error {
 
 	// 动态调整Cache值
 	var cacheSize = 512
-	var memoryGB = utils.SystemMemoryGB()
+	var memoryGB = memutils.SystemMemoryGB()
 	if memoryGB >= 1 {
 		cacheSize = 256 * memoryGB
 	}
@@ -592,9 +594,9 @@ func (this *SQLiteFileListDB) shouldRecover() bool {
 
 // 删除数据库文件
 func (this *SQLiteFileListDB) deleteDB() {
-	_ = os.Remove(this.dbPath)
-	_ = os.Remove(this.dbPath + "-shm")
-	_ = os.Remove(this.dbPath + "-wal")
+	_ = fsutils.Remove(this.dbPath)
+	_ = fsutils.Remove(this.dbPath + "-shm")
+	_ = fsutils.Remove(this.dbPath + "-wal")
 }
 
 // 加载Hash列表

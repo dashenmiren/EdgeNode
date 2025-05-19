@@ -1,12 +1,14 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/iwind/TeaGo/types"
 	"os"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/iwind/TeaGo/types"
 )
 
 func TestPartialFileWriter_Write(t *testing.T) {
@@ -14,7 +16,7 @@ func TestPartialFileWriter_Write(t *testing.T) {
 	_ = os.Remove(path)
 
 	var reader = func() {
-		data, err := os.ReadFile(path)
+		data, err := fsutils.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -26,7 +28,7 @@ func TestPartialFileWriter_Write(t *testing.T) {
 		t.Fatal(err)
 	}
 	var ranges = caches.NewPartialRanges(0)
-	var writer = caches.NewPartialFileWriter(fp, "test", time.Now().Unix()+86500, -1, -1, true, true, 0, ranges, func() {
+	var writer = caches.NewPartialFileWriter(fsutils.NewFile(fp, fsutils.FlagWrite), "test", time.Now().Unix()+86500, -1, -1, true, true, 0, ranges, func() {
 		t.Log("end")
 	})
 	_, err = writer.WriteHeader([]byte("header"))

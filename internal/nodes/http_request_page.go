@@ -1,15 +1,15 @@
 package nodes
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/iwind/TeaGo/Tea"
 	"net/http"
 	"os"
 	"path"
 	"strings"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/Tea"
 )
 
 const defaultPageContentType = "text/html; charset=utf-8"
@@ -18,7 +18,7 @@ const defaultPageContentType = "text/html; charset=utf-8"
 func (this *HTTPRequest) doPage(status int) (shouldStop bool) {
 	if len(this.web.Pages) == 0 {
 		// 集群自定义页面
-		if this.nodeConfig != nil && this.ReqServer != nil {
+		if this.nodeConfig != nil && this.ReqServer != nil && this.web.EnableGlobalPages {
 			var httpPagesPolicy = this.nodeConfig.FindHTTPPagesPolicyWithClusterId(this.ReqServer.ClusterId)
 			if httpPagesPolicy != nil && httpPagesPolicy.IsOn && len(httpPagesPolicy.Pages) > 0 {
 				return this.doPageLookup(httpPagesPolicy.Pages, status)
@@ -35,7 +35,7 @@ func (this *HTTPRequest) doPage(status int) (shouldStop bool) {
 	}
 
 	// 集群自定义页面
-	if this.nodeConfig != nil && this.ReqServer != nil {
+	if this.nodeConfig != nil && this.ReqServer != nil && this.web.EnableGlobalPages {
 		var httpPagesPolicy = this.nodeConfig.FindHTTPPagesPolicyWithClusterId(this.ReqServer.ClusterId)
 		if httpPagesPolicy != nil && httpPagesPolicy.IsOn && len(httpPagesPolicy.Pages) > 0 {
 			return this.doPageLookup(httpPagesPolicy.Pages, status)
@@ -104,11 +104,11 @@ func (this *HTTPRequest) doPageLookup(pages []*serverconfigs.HTTPPageConfig, sta
 						this.writer.Prepare(nil, stat.Size(), status, true)
 						this.writer.WriteHeader(status)
 					}
-					var buf = utils.BytePool1k.Get()
-					_, err = utils.CopyWithFilter(this.writer, fp, buf, func(p []byte) []byte {
+					var buf = bytepool.Pool1k.Get()
+					_, err = utils.CopyWithFilter(this.writer, fp, buf.Bytes, func(p []byte) []byte {
 						return []byte(this.Format(string(p)))
 					})
-					utils.BytePool1k.Put(buf)
+					bytepool.Pool1k.Put(buf)
 					if err != nil {
 						if !this.canIgnore(err) {
 							remotelogs.Warn("HTTP_REQUEST_PAGE", "write to client failed: "+err.Error())

@@ -1,15 +1,14 @@
 package nodes
 
 import (
-	"net"
-	"net/http"
-	"strconv"
-	"strings"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/types"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
 )
 
 // 主机地址快速跳转

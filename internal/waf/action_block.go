@@ -1,19 +1,20 @@
 package waf
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/rands"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"time"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/logs"
-	"github.com/iwind/TeaGo/rands"
 )
 
 // url client configure
@@ -29,6 +30,8 @@ type BlockAction struct {
 	Timeout    int32  `yaml:"timeout" json:"timeout"`
 	TimeoutMax int32  `yaml:"timeoutMax" json:"timeoutMax"`
 	Scope      string `yaml:"scope" json:"scope"`
+
+	FailBlockScopeAll bool `yaml:"failBlockScopeAll" json:"failBlockScopeAll"`
 }
 
 func (this *BlockAction) Init(waf *WAF) error {
@@ -46,7 +49,10 @@ func (this *BlockAction) Init(waf *WAF) error {
 			this.Timeout = waf.DefaultBlockAction.Timeout
 			this.TimeoutMax = waf.DefaultBlockAction.TimeoutMax // 只有没有填写封锁时长的时候才会使用默认的封锁时长最大值
 		}
+
+		this.FailBlockScopeAll = waf.DefaultBlockAction.FailBlockScopeAll
 	}
+
 	return nil
 }
 
@@ -75,7 +81,7 @@ func (this *BlockAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, reque
 		timeout = timeout + int32(rands.Int64()%int64(timeoutMax-timeout+1))
 	}
 
-	SharedIPBlackList.RecordIP(IPTypeAll, this.Scope, request.WAFServerId(), request.WAFRemoteIP(), time.Now().Unix()+int64(timeout), waf.Id, waf.UseLocalFirewall, group.Id, set.Id, "")
+	SharedIPBlackList.RecordIP(IPTypeAll, this.Scope, request.WAFServerId(), request.WAFRemoteIP(), time.Now().Unix()+int64(timeout), waf.Id, waf.UseLocalFirewall && (this.FailBlockScopeAll || this.Scope == firewallconfigs.FirewallScopeGlobal), group.Id, set.Id, "")
 
 	if writer != nil {
 		// close the connection
@@ -113,11 +119,11 @@ func (this *BlockAction) Perform(waf *WAF, group *RuleGroup, set *RuleSet, reque
 					}
 				}
 
-				buf := utils.BytePool1k.Get()
-				_, _ = io.CopyBuffer(writer, resp.Body, buf)
-				utils.BytePool1k.Put(buf)
+				var buf = bytepool.Pool1k.Get()
+				_, _ = io.CopyBuffer(writer, resp.Body, buf.Bytes)
+				bytepool.Pool1k.Put(buf)
 			} else {
-				path := this.URL
+				var path = this.URL
 				if !filepath.IsAbs(this.URL) {
 					path = Tea.Root + string(os.PathSeparator) + path
 				}

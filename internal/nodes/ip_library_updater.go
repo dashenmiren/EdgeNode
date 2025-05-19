@@ -1,15 +1,16 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
 	"errors"
-	"io"
-	"os"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/types"
+	"io"
+	"os"
 )
 
 type IPLibraryUpdater struct {

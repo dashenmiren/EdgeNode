@@ -1,13 +1,12 @@
 package nodes
 
 import (
-	"io"
-	"net/http"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/logs"
+	"io"
+	"net/http"
+	"time"
 )
 
 // 请求某个URL
@@ -71,11 +70,11 @@ func (this *HTTPRequest) doURL(method string, url string, host string, statusCod
 	var pool = this.bytePool(resp.ContentLength)
 	var buf = pool.Get()
 	if supportVariables {
-		_, err = utils.CopyWithFilter(this.writer, resp.Body, buf, func(p []byte) []byte {
+		_, err = utils.CopyWithFilter(this.writer, resp.Body, buf.Bytes, func(p []byte) []byte {
 			return []byte(this.Format(string(p)))
 		})
 	} else {
-		_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+		_, err = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
 	}
 	pool.Put(buf)
 

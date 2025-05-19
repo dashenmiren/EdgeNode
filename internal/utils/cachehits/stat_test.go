@@ -1,16 +1,17 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package cachehits_test
 
 import (
-	"runtime"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/cachehits"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"runtime"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestNewStat(t *testing.T) {

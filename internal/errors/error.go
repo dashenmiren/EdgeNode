@@ -2,11 +2,10 @@ package errors
 
 import (
 	"errors"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"path/filepath"
 	"runtime"
 	"strconv"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
 type errorObj struct {

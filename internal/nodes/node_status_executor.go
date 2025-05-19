@@ -2,12 +2,6 @@ package nodes
 
 import (
 	"encoding/json"
-	"math"
-	"os"
-	"runtime"
-	"strings"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeNode/internal/caches"
@@ -17,14 +11,19 @@ import (
 	"github.com/dashenmiren/EdgeNode/internal/monitor"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/net"
+	"math"
+	"os"
+	"runtime"
+	"strings"
+	"time"
 )
 
 type NodeStatusExecutor struct {

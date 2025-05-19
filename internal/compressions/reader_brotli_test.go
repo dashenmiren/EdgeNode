@@ -1,12 +1,13 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"io"
 	"os"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
 )
 
 func TestBrotliReader(t *testing.T) {

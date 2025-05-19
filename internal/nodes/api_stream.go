@@ -4,12 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"regexp"
-	"runtime"
-	"strconv"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/messageconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
@@ -19,12 +13,17 @@ import (
 	"github.com/dashenmiren/EdgeNode/internal/errors"
 	"github.com/dashenmiren/EdgeNode/internal/events"
 	"github.com/dashenmiren/EdgeNode/internal/firewalls"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/maps"
+	"net/url"
+	"regexp"
+	"runtime"
+	"strconv"
+	"time"
 )
 
 type APIStream struct {
@@ -283,14 +282,14 @@ func (this *APIStream) handleStatCache(message *pb.NodeStreamMessage) error {
 	}
 
 	sizeFormat := ""
-	if stat.Size < 1024 {
+	if stat.Size < (1 << 10) {
 		sizeFormat = strconv.FormatInt(stat.Size, 10) + " Bytes"
-	} else if stat.Size < 1024*1024 {
-		sizeFormat = fmt.Sprintf("%.2f KB", float64(stat.Size)/1024)
-	} else if stat.Size < 1024*1024*1024 {
-		sizeFormat = fmt.Sprintf("%.2f MB", float64(stat.Size)/1024/1024)
+	} else if stat.Size < (1 << 20) {
+		sizeFormat = fmt.Sprintf("%.2f KiB", float64(stat.Size)/(1<<10))
+	} else if stat.Size < (1 << 30) {
+		sizeFormat = fmt.Sprintf("%.2f MiB", float64(stat.Size)/(1<<20))
 	} else {
-		sizeFormat = fmt.Sprintf("%.2f GB", float64(stat.Size)/1024/1024/1024)
+		sizeFormat = fmt.Sprintf("%.2f GiB", float64(stat.Size)/(1<<30))
 	}
 	this.replyOk(message.RequestId, "size:"+sizeFormat+", count:"+strconv.Itoa(stat.Count))
 

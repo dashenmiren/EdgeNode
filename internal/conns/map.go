@@ -1,10 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package conns
 
 import (
+	"github.com/iwind/TeaGo/types"
 	"net"
 	"sync"
-
-	"github.com/iwind/TeaGo/types"
 )
 
 var SharedMap = NewMap()

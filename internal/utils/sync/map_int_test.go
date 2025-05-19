@@ -1,13 +1,14 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package syncutils_test
 
 import (
-	"sync"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/stats"
 	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/types"
+	"sync"
+	"testing"
 )
 
 func TestIntMap(t *testing.T) {

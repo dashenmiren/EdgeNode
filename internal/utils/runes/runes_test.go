@@ -1,15 +1,16 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package runes_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/re"
+	"github.com/dashenmiren/EdgeNode/internal/utils/runes"
+	"github.com/iwind/TeaGo/assert"
 	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/re"
-	"github.com/dashenmiren/EdgeNode/internal/utils/runes"
-	"github.com/iwind/TeaGo/assert"
 )
 
 func TestContainsAllWords(t *testing.T) {

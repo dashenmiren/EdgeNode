@@ -1,16 +1,17 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeutils"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ttlcache"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/types"
+	"net/http"
+	"time"
 )
 
 // 域名无匹配情况处理

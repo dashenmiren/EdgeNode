@@ -1,13 +1,14 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
 	"crypto/tls"
+	"github.com/dashenmiren/EdgeNode/internal/firewalls"
+	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"net"
 	"sync/atomic"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/firewalls"
-	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 )
 
 type BaseClientConn struct {

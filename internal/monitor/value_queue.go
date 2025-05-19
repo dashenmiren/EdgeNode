@@ -1,16 +1,17 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package monitor
 
 import (
 	"encoding/json"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/maps"
+	"time"
 )
 
 var SharedValueQueue = NewValueQueue()

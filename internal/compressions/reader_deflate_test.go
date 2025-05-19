@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"io"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
 )
 
 func TestDeflateReader(t *testing.T) {

@@ -1,14 +1,15 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
-	"io"
-	"strings"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"io"
+	"strings"
+	"testing"
 )
 
 func TestGzipReader(t *testing.T) {

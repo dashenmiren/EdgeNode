@@ -1,13 +1,12 @@
 package checkpoints
 
 import (
-	"regexp"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
+	"regexp"
 )
 
 // CCCheckpoint ${cc.arg}

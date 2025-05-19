@@ -6,20 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
-	"runtime"
-	"runtime/debug"
-	"sort"
-	"strings"
-	"sync"
-	"syscall"
-	"time"
-
-	"github.com/andybalholm/brotli"
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	iplib "github.com/dashenmiren/EdgeCommon/pkg/iplibrary"
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
@@ -32,23 +18,38 @@ import (
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
 	"github.com/dashenmiren/EdgeNode/internal/firewalls"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"github.com/dashenmiren/EdgeNode/internal/metrics"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/dashenmiren/EdgeNode/internal/stats"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	_ "github.com/dashenmiren/EdgeNode/internal/utils/agents" // 引入Agent管理器
 	_ "github.com/dashenmiren/EdgeNode/internal/utils/clock"  // 触发时钟更新
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/dashenmiren/EdgeNode/internal/utils/jsonutils"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
+	"github.com/andybalholm/brotli"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 	"github.com/iwind/gosock/pkg/gosock"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"runtime/debug"
+	"sort"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
 )
 
 var sharedNodeConfig *nodeconfigs.NodeConfig
@@ -213,7 +214,7 @@ func (this *Node) Start() {
 	events.Notify(events.EventLoaded)
 
 	// 设置rlimit
-	_ = utils.SetRLimit(1024 * 1024)
+	_ = utils.SetRLimit(1 << 20)
 
 	// 连接API
 	goman.New(func() {
@@ -226,6 +227,11 @@ func (this *Node) Start() {
 	})
 	goman.New(func() {
 		stats.SharedHTTPRequestStatManager.Start()
+	})
+
+	// 硬盘TRIM任务
+	goman.New(func() {
+		NewTrimDisksTask().Start()
 	})
 
 	// 启动端口
@@ -875,6 +881,10 @@ func (this *Node) onReload(config *nodeconfigs.NodeConfig, reloadAll bool) {
 	nodeconfigs.ResetNodeConfig(config)
 	sharedNodeConfig = config
 
+	// 并发读写数
+	fsutils.ReaderLimiter.SetThreads(config.MaxConcurrentReads)
+	fsutils.WriterLimiter.SetThreads(config.MaxConcurrentWrites)
+
 	if reloadAll {
 		// 缓存策略
 		var subDirs = config.CacheDiskSubDirs
@@ -962,7 +972,7 @@ func (this *Node) onReload(config *nodeconfigs.NodeConfig, reloadAll bool) {
 				runtime.GOMAXPROCS(int(config.MaxCPU))
 				remotelogs.Println("NODE", "[CPU]set max cpu to '"+types.String(config.MaxCPU)+"'")
 			} else {
-				var threads = runtime.NumCPU() * 4
+				var threads = runtime.NumCPU()
 				runtime.GOMAXPROCS(threads)
 				remotelogs.Println("NODE", "[CPU]set max cpu to '"+types.String(threads)+"'")
 			}
@@ -1121,10 +1131,11 @@ func (this *Node) tuneSystemParameters() {
 		{name: "net.core.wmem_default", minValue: 4 << 20},
 		{name: "net.core.rmem_max", minValue: 32 << 20},
 		{name: "net.core.wmem_max", minValue: 32 << 20},
+		{name: "vm.max_map_count", minValue: 256 << 10},
 	}
 
 	// vm
-	var systemMemory = utils.SystemMemoryGB()
+	var systemMemory = memutils.SystemMemoryGB()
 	if systemMemory >= 128 {
 		systemParameters = append(systemParameters, []variable{
 			{name: "vm.dirty_background_ratio", minValue: 40},

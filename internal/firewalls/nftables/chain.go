@@ -1,3 +1,4 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build linux
 
 package nftables
@@ -5,7 +6,6 @@ package nftables
 import (
 	"bytes"
 	"errors"
-
 	nft "github.com/google/nftables"
 	"github.com/google/nftables/expr"
 )

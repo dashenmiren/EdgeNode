@@ -1,15 +1,16 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package waf_test
 
 import (
-	"runtime"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/types"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
 )
 
 func TestCaptchaGenerator_NewCaptcha(t *testing.T) {

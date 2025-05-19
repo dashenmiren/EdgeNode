@@ -1,3 +1,4 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build !plus
 
 package nodes

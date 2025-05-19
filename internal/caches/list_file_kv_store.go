@@ -1,14 +1,16 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches
 
 import (
 	"errors"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ttlcache"
+	"github.com/cockroachdb/pebble"
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/cockroachdb/pebble"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
 )
 
 type KVListFileStore struct {
@@ -19,11 +21,14 @@ type KVListFileStore struct {
 	itemsTable *kvstore.Table[*Item]
 
 	rawIsReady bool
+
+	memCache *ttlcache.Cache[int64]
 }
 
-func NewKVListFileStore(path string) *KVListFileStore {
+func NewKVListFileStore(path string, memCache *ttlcache.Cache[int64]) *KVListFileStore {
 	return &KVListFileStore{
-		path: path,
+		path:     path,
+		memCache: memCache,
 	}
 }
 
@@ -89,23 +94,30 @@ func (this *KVListFileStore) AddItem(hash string, item *Item) error {
 	return this.itemsTable.Set(hash, item)
 }
 
-func (this *KVListFileStore) ExistItem(hash string) (bool, error) {
+func (this *KVListFileStore) ExistItem(hash string) (bool, int64, error) {
 	if !this.isReady() {
-		return false, nil
+		return false, -1, nil
 	}
 
 	item, err := this.itemsTable.Get(hash)
 	if err != nil {
-		if kvstore.IsKeyNotFound(err) {
-			return false, nil
+		if kvstore.IsNotFound(err) {
+			return false, -1, nil
 		}
-		return false, err
+		return false, -1, err
 	}
 	if item == nil {
-		return false, nil
+		return false, -1, nil
 	}
 
-	return item.ExpiresAt >= fasttime.NewFastTime().Unix(), nil
+	if item.ExpiresAt <= fasttime.Now().Unix() {
+		return false, 0, nil
+	}
+
+	// write to cache
+	this.memCache.Write(hash, item.HeaderSize+item.BodySize, min(item.ExpiresAt, fasttime.Now().Unix()+3600))
+
+	return true, item.HeaderSize + item.BodySize, nil
 }
 
 func (this *KVListFileStore) ExistQuickItem(hash string) (bool, error) {
@@ -167,6 +179,7 @@ func (this *KVListFileStore) PurgeItems(count int, callback func(hash string) er
 				if deleteErr != nil {
 					return deleteErr
 				}
+				this.memCache.Delete(hash)
 			}
 			return nil
 		})
@@ -213,6 +226,7 @@ func (this *KVListFileStore) PurgeLFUItems(count int, callback func(hash string)
 				if deleteErr != nil {
 					return deleteErr
 				}
+				this.memCache.Delete(hash)
 			}
 			return nil
 		})
@@ -275,6 +289,9 @@ func (this *KVListFileStore) CleanItemsWithPrefix(prefix string) error {
 					return false, setErr
 				}
 
+				// remove from cache
+				this.memCache.Delete(item.Key)
+
 				return true, nil
 			})
 		if err != nil {
@@ -332,6 +349,9 @@ func (this *KVListFileStore) CleanItemsWithWildcardPrefix(prefix string) error {
 				if setErr != nil {
 					return false, setErr
 				}
+
+				// remove from cache
+				this.memCache.Delete(item.Key)
 
 				return true, nil
 			})
@@ -400,6 +420,9 @@ func (this *KVListFileStore) CleanItemsWithWildcardKey(key string) error {
 					if setErr != nil {
 						return false, setErr
 					}
+
+					// remove from cache
+					this.memCache.Delete(item.Key)
 
 					return true, nil
 				})

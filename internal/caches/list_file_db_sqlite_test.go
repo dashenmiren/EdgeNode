@@ -1,15 +1,16 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches_test
 
 import (
-	"runtime"
-	"runtime/debug"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/Tea"
 	_ "github.com/iwind/TeaGo/bootstrap"
+	"runtime"
+	"runtime/debug"
+	"testing"
+	"time"
 )
 
 func TestFileListDB_ListLFUItems(t *testing.T) {
@@ -61,12 +62,12 @@ func TestFileListDB_CleanMatchKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = db.CleanMatchKey("https://*.google.com/large-text")
+	err = db.CleanMatchKey("https://*.goedge.cn/large-text")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = db.CleanMatchKey("https://*.google.com:1234/large-text?%2B____")
+	err = db.CleanMatchKey("https://*.goedge.cn:1234/large-text?%2B____")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,12 +94,12 @@ func TestFileListDB_CleanMatchPrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = db.CleanMatchPrefix("https://*.google.com/large-text")
+	err = db.CleanMatchPrefix("https://*.goedge.cn/large-text")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = db.CleanMatchPrefix("https://*.google.com:1234/large-text?%2B____")
+	err = db.CleanMatchPrefix("https://*.goedge.cn:1234/large-text?%2B____")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"os"
-	"runtime"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/maps"
+	"os"
+	"runtime"
+	"time"
 )
 
 func init() {

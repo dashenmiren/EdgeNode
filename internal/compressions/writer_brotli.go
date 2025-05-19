@@ -1,11 +1,11 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build !plus || !linux
 
 package compressions
 
 import (
-	"io"
-
 	"github.com/andybalholm/brotli"
+	"io"
 )
 
 type BrotliWriter struct {
@@ -19,12 +19,8 @@ func NewBrotliWriter(writer io.Writer, level int) (Writer, error) {
 	return sharedBrotliWriterPool.Get(writer, level)
 }
 
-func newBrotliWriter(writer io.Writer, level int) (*BrotliWriter, error) {
-	if level <= 0 {
-		level = brotli.BestSpeed
-	} else if level > brotli.BestCompression {
-		level = brotli.BestCompression
-	}
+func newBrotliWriter(writer io.Writer) (*BrotliWriter, error) {
+	var level = GenerateCompressLevel(brotli.BestSpeed, brotli.BestCompression)
 	return &BrotliWriter{
 		writer: brotli.NewWriterOptions(writer, brotli.WriterOptions{
 			Quality: level,

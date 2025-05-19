@@ -1,11 +1,12 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore
 
 import (
 	"encoding/binary"
-	"strconv"
-
 	"github.com/iwind/TeaGo/types"
 	"golang.org/x/exp/constraints"
+	"strconv"
 )
 
 type IntValueEncoder[T constraints.Integer] struct {
@@ -77,3 +78,4 @@ func (this *IntValueEncoder[T]) Decode(valueData []byte) (value T, err error) {
 
 	return
 }
+

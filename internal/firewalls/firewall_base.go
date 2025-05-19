@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package firewalls
 
 import (
+	"github.com/iwind/TeaGo/types"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/iwind/TeaGo/types"
 )
 
 type BaseFirewall struct {

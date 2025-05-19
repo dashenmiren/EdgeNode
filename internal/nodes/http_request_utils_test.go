@@ -1,14 +1,13 @@
 package nodes
 
 import (
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
+	"github.com/iwind/TeaGo/assert"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
-	"github.com/iwind/TeaGo/assert"
 )
 
 func TestHTTPRequest_httpRequestGenBoundary(t *testing.T) {

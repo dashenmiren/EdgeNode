@@ -1,9 +1,10 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/nodes"
+	"testing"
 )
 
 func TestOCSPUpdateTask_Loop(t *testing.T) {

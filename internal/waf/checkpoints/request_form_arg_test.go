@@ -2,12 +2,11 @@ package checkpoints
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"io"
 	"net/http"
 	"net/url"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestFormArgCheckpoint_RequestValue(t *testing.T) {

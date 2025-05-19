@@ -1,15 +1,16 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package firewalls
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"net/url"
-
-	"github.com/iwind/TeaGo/maps"
-	"github.com/iwind/TeaGo/types"
 )
 
 type HTTPFirewall struct {

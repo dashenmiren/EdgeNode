@@ -2,10 +2,11 @@ package caches
 
 import (
 	"errors"
-	"sync"
-
-	"github.com/cespare/xxhash"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/cespare/xxhash/v2"
+	"github.com/iwind/TeaGo/types"
+	"sync"
+	"sync/atomic"
 )
 
 type MemoryWriter struct {
@@ -33,27 +34,11 @@ func NewMemoryWriter(memoryStorage *MemoryStorage, key string, expiredAt int64, 
 		ModifiedAt: fasttime.Now().Unix(),
 		Status:     status,
 	}
-	if enableFragmentPool &&
-		expectedBodySize > 0 &&
-		expectedBodySize <= maxMemoryFragmentPoolItemSize {
-		bodyBytes, ok := SharedFragmentMemoryPool.Get(expectedBodySize) // try to reuse memory
-		if ok {
-			valueItem.BodyValue = bodyBytes
-			valueItem.IsPrepared = true
-		} else {
-			if expectedBodySize <= (16 << 20) {
-				var allocSize = (expectedBodySize/16384 + 1) * 16384
-				valueItem.BodyValue = make([]byte, allocSize)[:expectedBodySize]
-				valueItem.IsPrepared = true
 
-				SharedFragmentMemoryPool.IncreaseNew()
-			}
-		}
-	} else {
-		if expectedBodySize > 0 {
-			valueItem.BodyValue = make([]byte, 0, expectedBodySize)
-		}
+	if expectedBodySize > 0 {
+		valueItem.BodyValue = make([]byte, 0, expectedBodySize)
 	}
+
 	var w = &MemoryWriter{
 		storage:          memoryStorage,
 		key:              key,
@@ -136,6 +121,14 @@ func (this *MemoryWriter) Close() error {
 		return nil
 	}
 
+	// check content length
+	if this.expectedBodySize > 0 && this.bodySize != this.expectedBodySize {
+		this.storage.locker.Lock()
+		delete(this.storage.valuesMap, this.hash)
+		this.storage.locker.Unlock()
+		return ErrUnexpectedContentLength
+	}
+
 	this.storage.locker.Lock()
 	this.item.IsDone = true
 	var err error
@@ -144,7 +137,8 @@ func (this *MemoryWriter) Close() error {
 			this.storage.valuesMap[this.hash] = this.item
 
 			select {
-			case this.storage.dirtyChan <- this.key:
+			case this.storage.dirtyChan <- types.String(this.bodySize) + "@" + this.key:
+				atomic.AddInt64(&this.storage.totalDirtySize, this.bodySize)
 			default:
 				// remove from values map
 				delete(this.storage.valuesMap, this.hash)
@@ -172,14 +166,6 @@ func (this *MemoryWriter) Discard() error {
 
 	this.storage.locker.Lock()
 	delete(this.storage.valuesMap, this.hash)
-
-	if enableFragmentPool &&
-		this.item != nil &&
-		!this.item.isReferring &&
-		cap(this.item.BodyValue) >= minMemoryFragmentPoolItemSize {
-		SharedFragmentMemoryPool.Put(this.item.BodyValue)
-	}
-
 	this.storage.locker.Unlock()
 	return nil
 }

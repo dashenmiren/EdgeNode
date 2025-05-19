@@ -2,11 +2,10 @@ package checkpoints
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"io"
 	"net/http"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestJSONArgCheckpoint_RequestValue_Map(t *testing.T) {

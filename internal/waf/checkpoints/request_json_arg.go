@@ -2,12 +2,11 @@ package checkpoints
 
 import (
 	"encoding/json"
-	"strings"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	wafutils "github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
+	"strings"
 )
 
 // RequestJSONArgCheckpoint ${requestJSON.arg}

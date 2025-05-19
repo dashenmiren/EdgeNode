@@ -1,6 +1,8 @@
 package caches
 
 import (
+	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
+	"github.com/iwind/TeaGo/logs"
 	"net"
 	"net/url"
 	"strconv"
@@ -8,9 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
-	"github.com/iwind/TeaGo/logs"
 )
 
 // MemoryList 内存缓存列表管理
@@ -90,21 +89,21 @@ func (this *MemoryList) Add(hash string, item *Item) error {
 	return nil
 }
 
-func (this *MemoryList) Exist(hash string) (bool, error) {
+func (this *MemoryList) Exist(hash string) (bool, int64, error) {
 	this.locker.RLock()
 	defer this.locker.RUnlock()
 
 	prefix := this.prefix(hash)
 	itemMap, ok := this.itemMaps[prefix]
 	if !ok {
-		return false, nil
+		return false, -1, nil
 	}
 	item, ok := itemMap[hash]
 	if !ok {
-		return false, nil
+		return false, -1, nil
 	}
 
-	return !item.IsExpired(), nil
+	return !item.IsExpired(), -1, nil
 }
 
 // CleanPrefix 根据前缀进行清除

@@ -4,20 +4,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
-	_ "net/http/pprof"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/apps"
 	"github.com/dashenmiren/EdgeNode/internal/configs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/nodes"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	"github.com/iwind/TeaGo/Tea"
 	_ "github.com/iwind/TeaGo/bootstrap"
@@ -26,13 +18,23 @@ import (
 	"github.com/iwind/TeaGo/types"
 	"github.com/iwind/gosock/pkg/gosock"
 	"gopkg.in/yaml.v3"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"syscall"
+	"time"
 )
 
 func main() {
 	var app = apps.NewAppCmd().
 		Version(teaconst.Version).
 		Product(teaconst.ProductName).
-		Usage(teaconst.ProcessName + " [-v|start|stop|restart|status|quit|test|reload|service|daemon|config|pprof|accesslog|uninstall]").
+		Usage(teaconst.ProcessName + " [-v|start|stop|restart|status|quit|test|reload|service|daemon|config|pprof|top|accesslog|uninstall]").
 		Usage(teaconst.ProcessName + " [trackers|goman|conns|gc|bandwidth|disk|cache.garbage]").
 		Usage(teaconst.ProcessName + " [ip.drop|ip.reject|ip.remove|ip.close] IP")
 
@@ -560,6 +562,37 @@ func main() {
 		}
 
 		fmt.Println("success")
+	})
+	app.On("top", func() {
+		var sock = gosock.NewTmpSock(teaconst.ProcessName)
+		reply, err := sock.Send(&gosock.Command{Code: "pid"})
+		if err != nil {
+			fmt.Println("[ERROR]not started yet")
+			return
+		}
+
+		var pid = maps.NewMap(reply.Params).GetInt("pid")
+		if pid <= 0 {
+			fmt.Println("[ERROR]invalid pid '" + types.String(pid) + "'")
+			return
+		}
+
+		topExe, _ := executils.LookPath("top")
+		if len(topExe) > 0 {
+			if runtime.GOOS == "linux" {
+				err = syscall.Exec(topExe, []string{topExe, "-p", types.String(pid)}, os.Environ())
+			} else if runtime.GOOS == "darwin" {
+				err = syscall.Exec(topExe, []string{topExe, "-pid", types.String(pid)}, os.Environ())
+			} else {
+				fmt.Println("[ERROR]not supported os '" + runtime.GOOS + "'")
+				return
+			}
+			if err != nil {
+				fmt.Println("[ERROR]start failed: " + err.Error())
+			}
+		} else {
+			fmt.Println("[ERROR]could not found 'top' command in this system")
+		}
 	})
 	app.Run(func() {
 		var node = nodes.NewNode()

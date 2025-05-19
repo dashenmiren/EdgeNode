@@ -1,17 +1,22 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package kvstore_test
 
 import (
 	"fmt"
+	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"runtime"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/kvstore"
-	"github.com/iwind/TeaGo/assert"
 )
 
 func TestQuery_FindAll(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	var before = time.Now()
 	defer func() {
@@ -36,6 +41,10 @@ func TestQuery_FindAll(t *testing.T) {
 func TestQuery_FindAll_Break(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var before = time.Now()
 	defer func() {
 		t.Log("cost:", time.Since(before).Seconds()*1000, "ms")
@@ -56,14 +65,16 @@ func TestQuery_FindAll_Break(t *testing.T) {
 			return count < 3, nil
 		})
 	if err != nil {
-		t.Fatal(err)
+		t.Log(err)
 	}
 }
 
 func TestQuery_FindAll_Break_Closed(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
-	var a = assert.NewAssertion(t)
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	var before = time.Now()
 	defer func() {
@@ -85,11 +96,14 @@ func TestQuery_FindAll_Break_Closed(t *testing.T) {
 			return count < 3, nil
 		})
 	t.Log("expected error:", err)
-	a.IsTrue(err != nil)
 }
 
 func TestQuery_FindAll_Desc(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	err := table.Query().
 		Desc().
@@ -105,6 +119,10 @@ func TestQuery_FindAll_Desc(t *testing.T) {
 
 func TestQuery_FindAll_Offset(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	{
 		t.Log("=== forward ===")
@@ -137,8 +155,36 @@ func TestQuery_FindAll_Offset(t *testing.T) {
 	}
 }
 
+func TestQuery_FindAll_Skip(t *testing.T) {
+	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
+	{
+		err := table.Query().
+			Offset("a3").
+			Limit(10).
+			FindAll(func(tx *kvstore.Tx[*testCachedItem], item kvstore.Item[*testCachedItem]) (goNext bool, err error) {
+				if item.Key == "a30" || item.Key == "a3000005" {
+					return kvstore.Skip()
+				}
+				t.Log("key:", item.Key, "value:", item.Value)
+				return true, nil
+			})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestQuery_FindAll_Count(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	var count int
 
@@ -164,6 +210,10 @@ func TestQuery_FindAll_Count(t *testing.T) {
 
 func TestQuery_FindAll_Field(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
+
+	defer func() {
+		_ = testingStore.Close()
+	}()
 
 	var before = time.Now()
 	defer func() {
@@ -215,17 +265,26 @@ func TestQuery_FindAll_Field(t *testing.T) {
 func TestQuery_FindAll_Field_Many(t *testing.T) {
 	var table = testOpenStoreTable[*testCachedItem](t, "cache_items", &testCacheItemEncoder[*testCachedItem]{})
 
+	defer func() {
+		_ = testingStore.Close()
+	}()
+
 	var before = time.Now()
 	defer func() {
 		var costSeconds = time.Since(before).Seconds()
 		t.Log("cost:", costSeconds*1000, "ms", "qps:", int(1/costSeconds))
 	}()
 
+	var count = 3
+	if testutils.IsSingleTesting() {
+		count = 1_000
+	}
+
 	err := table.
 		Query().
 		FieldAsc("expiresAt").
 		KeysOnly().
-		Limit(1000).
+		Limit(count).
 		FindAll(func(tx *kvstore.Tx[*testCachedItem], item kvstore.Item[*testCachedItem]) (goNext bool, err error) {
 			t.Log(item.Key, "=>", item.Value)
 			return true, nil

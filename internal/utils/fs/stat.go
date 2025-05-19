@@ -1,10 +1,11 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package fsutils
 
 import (
-	"sync"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"golang.org/x/sys/unix"
+	"sync"
 )
 
 // StatDevice device contains the path

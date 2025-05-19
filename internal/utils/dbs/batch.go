@@ -1,10 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package dbs
 
 import (
 	"database/sql"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"time"
 )
 
 type batchItem struct {

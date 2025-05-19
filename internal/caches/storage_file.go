@@ -6,6 +6,27 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
+	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
+	"github.com/dashenmiren/EdgeNode/internal/utils/trackers"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/rands"
+	"github.com/iwind/TeaGo/types"
+	stringutil "github.com/iwind/TeaGo/utils/string"
+	timeutil "github.com/iwind/TeaGo/utils/time"
+	"github.com/iwind/gosock/pkg/gosock"
+	"github.com/shirou/gopsutil/v3/load"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,27 +37,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/trackers"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
-	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
-	"github.com/dashenmiren/EdgeNode/internal/utils/sizes"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/rands"
-	"github.com/iwind/TeaGo/types"
-	stringutil "github.com/iwind/TeaGo/utils/string"
-	timeutil "github.com/iwind/TeaGo/utils/time"
-	"github.com/iwind/gosock/pkg/gosock"
-	"github.com/shirou/gopsutil/v3/load"
 )
 
 const (
@@ -55,15 +55,29 @@ const (
 )
 
 const (
-	FileStorageMaxIgnoreKeys        = 32768        // 最大可忽略的键值数（尺寸过大的键值）
-	HotItemSize                     = 1024         // 热点数据数量
-	HotItemLifeSeconds       int64  = 3600         // 热点数据生命周期
-	FileToMemoryMaxSize             = 32 * sizes.M // 可以从文件写入到内存的最大文件尺寸
+	FileStorageMaxIgnoreKeys        = 32768 // 最大可忽略的键值数（尺寸过大的键值）
+	HotItemSize                     = 1024  // 热点数据数量
+	HotItemLifeSeconds       int64  = 3600  // 热点数据生命周期
 	FileTmpSuffix                   = ".tmp"
 	DefaultMinDiskFreeSpace  uint64 = 5 << 30 // 当前磁盘最小剩余空间
 	DefaultStaleCacheSeconds        = 1200    // 过时缓存留存时间
 	HashKeyLength                   = 32
 )
+
+var FileToMemoryMaxSize int64 = 32 << 20 // 可以从文件写入到内存的最大文件尺寸
+
+func init() {
+	var availableMemoryGB = memutils.AvailableMemoryGB()
+	if availableMemoryGB > 64 {
+		FileToMemoryMaxSize = 512 << 20
+	} else if availableMemoryGB > 32 {
+		FileToMemoryMaxSize = 256 << 20
+	} else if availableMemoryGB > 16 {
+		FileToMemoryMaxSize = 128 << 20
+	} else if availableMemoryGB > 8 {
+		FileToMemoryMaxSize = 64 << 20
+	}
+}
 
 var sharedWritingFileKeyMap = map[string]zero.Zero{} // key => bool
 var sharedWritingFileKeyLocker = sync.Mutex{}
@@ -126,7 +140,7 @@ func (this *FileStorage) CanUpdatePolicy(newPolicy *serverconfigs.HTTPCachePolic
 	if err != nil {
 		return false
 	}
-	var oldOptions = &serverconfigs.HTTPFileCacheStorage{}
+	var oldOptions = serverconfigs.NewHTTPFileCacheStorage()
 	err = json.Unmarshal(oldOptionsJSON, oldOptions)
 	if err != nil {
 		return false
@@ -136,7 +150,7 @@ func (this *FileStorage) CanUpdatePolicy(newPolicy *serverconfigs.HTTPCachePolic
 	if err != nil {
 		return false
 	}
-	var newOptions = &serverconfigs.HTTPFileCacheStorage{}
+	var newOptions = serverconfigs.NewHTTPFileCacheStorage()
 	err = json.Unmarshal(newOptionsJSON, newOptions)
 	if err != nil {
 		return false
@@ -159,7 +173,7 @@ func (this *FileStorage) UpdatePolicy(newPolicy *serverconfigs.HTTPCachePolicy) 
 	if err != nil {
 		return
 	}
-	var newOptions = &serverconfigs.HTTPFileCacheStorage{}
+	var newOptions = serverconfigs.NewHTTPFileCacheStorage()
 	err = json.Unmarshal(newOptionsJSON, newOptions)
 	if err != nil {
 		remotelogs.Error("CACHE", "update policy '"+types.String(this.policy.Id)+"' failed: decode options failed: "+err.Error())
@@ -224,7 +238,7 @@ func (this *FileStorage) Init() error {
 	var before = time.Now()
 
 	// 配置
-	var options = &serverconfigs.HTTPFileCacheStorage{}
+	var options = serverconfigs.NewHTTPFileCacheStorage()
 	optionsJSON, err := json.Marshal(this.policy.Options)
 	if err != nil {
 		return err
@@ -298,14 +312,19 @@ func (this *FileStorage) Init() error {
 		var totalSize = this.TotalDiskSize()
 		var cost = time.Since(before).Seconds() * 1000
 		var sizeMB = types.String(totalSize) + " Bytes"
-		if totalSize > 1*sizes.G {
-			sizeMB = fmt.Sprintf("%.3f G", float64(totalSize)/float64(sizes.G))
-		} else if totalSize > 1*sizes.M {
-			sizeMB = fmt.Sprintf("%.3f M", float64(totalSize)/float64(sizes.M))
-		} else if totalSize > 1*sizes.K {
-			sizeMB = fmt.Sprintf("%.3f K", float64(totalSize)/float64(sizes.K))
+		if totalSize > (1 << 30) {
+			sizeMB = fmt.Sprintf("%.3f GiB", float64(totalSize)/(1<<30))
+		} else if totalSize > (1 << 20) {
+			sizeMB = fmt.Sprintf("%.3f MiB", float64(totalSize)/(1<<20))
+		} else if totalSize > (1 << 10) {
+			sizeMB = fmt.Sprintf("%.3f KiB", float64(totalSize)/(1<<10))
 		}
-		remotelogs.Println("CACHE", "init policy "+types.String(this.policy.Id)+" from '"+this.options.Dir+"', cost: "+fmt.Sprintf("%.2f", cost)+" ms, size: "+sizeMB)
+
+		var mmapTag = "disabled"
+		if this.options.EnableMMAP {
+			mmapTag = "enabled"
+		}
+		remotelogs.Println("CACHE", "init policy "+types.String(this.policy.Id)+" from '"+this.options.Dir+"', cost: "+fmt.Sprintf("%.2f", cost)+" ms, size: "+sizeMB+", mmap: "+mmapTag)
 	}()
 
 	// 初始化list
@@ -361,17 +380,31 @@ func (this *FileStorage) openReader(key string, allowMemory bool, useStale bool,
 	hash, path, _ := this.keyPath(key)
 
 	// 检查文件记录是否已过期
+	var estimatedSize int64
+	var existInList bool
 	if !useStale {
-		exists, err := this.list.Exist(hash)
+		exists, filesize, err := this.list.Exist(hash)
 		if err != nil {
 			return nil, err
 		}
 		if !exists {
 			return nil, ErrNotFound
 		}
+		estimatedSize = filesize
+		existInList = true
 	}
 
-	// TODO 尝试使用mmap加快读取速度
+	// 尝试通过MMAP读取
+	if estimatedSize > 0 {
+		reader, err := this.tryMMAPReader(isPartial, estimatedSize, path)
+		if err != nil {
+			return nil, err
+		}
+		if reader != nil {
+			return reader, nil
+		}
+	}
+
 	var isOk = false
 	var openFile *OpenFile
 	var openFileCache = this.openFileCache // 因为中间可能有修改，所以先赋值再获取
@@ -379,9 +412,16 @@ func (this *FileStorage) openReader(key string, allowMemory bool, useStale bool,
 		openFile = openFileCache.Get(path)
 	}
 	var fp *os.File
+
 	var err error
 	if openFile == nil {
+		if existInList {
+			fsutils.ReaderLimiter.Ack()
+		}
 		fp, err = os.OpenFile(path, os.O_RDONLY, 0444)
+		if existInList {
+			fsutils.ReaderLimiter.Release()
+		}
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return nil, err
@@ -400,16 +440,17 @@ func (this *FileStorage) openReader(key string, allowMemory bool, useStale bool,
 
 	var reader Reader
 	if isPartial {
-		var partialFileReader = NewPartialFileReader(fp)
+		var partialFileReader = NewPartialFileReader(fsutils.NewFile(fp, fsutils.FlagRead))
 		partialFileReader.openFile = openFile
 		partialFileReader.openFileCache = openFileCache
 		reader = partialFileReader
 	} else {
-		var fileReader = NewFileReader(fp)
+		var fileReader = NewFileReader(fsutils.NewFile(fp, fsutils.FlagRead))
 		fileReader.openFile = openFile
 		fileReader.openFileCache = openFileCache
 		reader = fileReader
 	}
+
 	err = reader.Init()
 	if err != nil {
 		return nil, err
@@ -460,7 +501,7 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 		maxMemorySize = maxSize
 	}
 	var memoryStorage = this.memoryStorage
-	if !fsutils.DiskIsExtremelyFast() && !isFlushing && !isPartial && memoryStorage != nil && ((bodySize > 0 && bodySize < maxMemorySize) || bodySize < 0) {
+	if !isFlushing && !isPartial && memoryStorage != nil && ((bodySize > 0 && bodySize < maxMemorySize) || bodySize < 0) {
 		writer, err := memoryStorage.OpenWriter(key, expiredAt, status, headerSize, bodySize, maxMemorySize, false)
 		if err == nil {
 			return writer, nil
@@ -468,6 +509,10 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 
 		// 如果队列满了，则等待
 		if errors.Is(err, ErrWritingQueueFull) {
+			return nil, err
+		}
+
+		if IsCapacityError(err) && bodySize > 0 && memoryStorage.totalDirtySize > (128<<20) {
 			return nil, err
 		}
 	}
@@ -479,11 +524,6 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 	if ok {
 		sharedWritingFileKeyLocker.Unlock()
 		return nil, fmt.Errorf("%w(001)", ErrFileIsWriting)
-	}
-
-	if !isFlushing && !fsutils.WriteReady() {
-		sharedWritingFileKeyLocker.Unlock()
-		return nil, ErrServerIsBusy
 	}
 
 	sharedWritingFileKeyMap[key] = zero.New()
@@ -550,11 +590,11 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 	var partialRanges *PartialRanges
 	if isPartial {
 		// 数据库中是否存在
-		existsCacheItem, _ := this.list.Exist(hash)
+		existsCacheItem, _, _ := this.list.Exist(hash)
 		if existsCacheItem {
-			readerFp, err := os.OpenFile(tmpPath, os.O_RDONLY, 0444)
+			readerFp, err := fsutils.OpenFile(tmpPath, os.O_RDONLY, 0444)
 			if err == nil {
-				var partialReader = NewPartialFileReader(readerFp)
+				var partialReader = NewPartialFileReader(fsutils.NewFile(readerFp, fsutils.FlagRead))
 				err = partialReader.Init()
 				_ = partialReader.Close()
 				if err == nil && partialReader.bodyOffset > 0 {
@@ -585,21 +625,30 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 	if isNewCreated && existsFile {
 		flags |= os.O_TRUNC
 	}
-	fsutils.WriteBegin()
-	writer, err := os.OpenFile(tmpPath, flags, 0666)
-	fsutils.WriteEnd()
+	if !isFlushing {
+		if !fsutils.WriterLimiter.TryAck() {
+			return nil, ErrServerIsBusy
+		}
+	}
+	fp, err := os.OpenFile(tmpPath, flags, 0666)
+	if !isFlushing {
+		fsutils.WriterLimiter.Release()
+	}
 	if err != nil {
-		// TODO 检查在各个系统中的稳定性
 		if os.IsNotExist(err) {
 			_ = os.MkdirAll(dir, 0777)
 
 			// open file again
-			writer, err = os.OpenFile(tmpPath, flags, 0666)
+			fsutils.WriterLimiter.Ack()
+			fp, err = os.OpenFile(tmpPath, flags, 0666)
+			fsutils.WriterLimiter.Release()
 		}
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	var writer = fsutils.NewFile(fp, fsutils.FlagWrite)
 
 	var removeOnFailure = true
 	defer func() {
@@ -611,16 +660,23 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 		if !isOk {
 			_ = writer.Close()
 			if removeOnFailure {
-				_ = os.Remove(tmpPath)
+				_ = fsutils.Remove(tmpPath)
 			}
 		}
 	}()
 
 	// 尝试锁定，如果锁定失败，则直接返回
+	fsutils.WriterLimiter.Ack()
 	err = syscall.Flock(int(writer.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
+	fsutils.WriterLimiter.Release()
 	if err != nil {
 		removeOnFailure = false
 		return nil, fmt.Errorf("%w (003)", ErrFileIsWriting)
+	}
+
+	// 关闭
+	if openFileCache != nil {
+		openFileCache.Close(cachePath)
 	}
 
 	var metaBodySize int64 = -1
@@ -649,9 +705,7 @@ func (this *FileStorage) openWriter(key string, expiredAt int64, status int, hea
 			metaBodySize = bodySize
 		}
 
-		fsutils.WriteBegin()
 		_, err = writer.Write(metaBytes)
-		fsutils.WriteEnd()
 		if err != nil {
 			return nil, err
 		}
@@ -950,6 +1004,11 @@ func (this *FileStorage) CanSendfile() bool {
 	return this.options.EnableSendfile
 }
 
+// Options 获取当前缓存存储的选项
+func (this *FileStorage) Options() *serverconfigs.HTTPFileCacheStorage {
+	return this.options
+}
+
 // 获取Key对应的文件路径
 func (this *FileStorage) keyPath(key string) (hash string, path string, diskIsFull bool) {
 	hash = stringutil.Md5(key)
@@ -1104,9 +1163,7 @@ func (this *FileStorage) purgeLoop() {
 		for i := 0; i < times; i++ {
 			countFound, err := this.list.Purge(purgeCount, func(hash string) error {
 				path, _ := this.hashPath(hash)
-				fsutils.WriteBegin()
 				err := this.removeCacheFile(path)
-				fsutils.WriteEnd()
 				if err != nil && !os.IsNotExist(err) {
 					remotelogs.Error("CACHE", "purge '"+path+"' error: "+err.Error())
 				}
@@ -1163,9 +1220,7 @@ func (this *FileStorage) purgeLoop() {
 				var before = time.Now()
 				err := this.list.PurgeLFU(count, func(hash string) error {
 					path, _ := this.hashPath(hash)
-					fsutils.WriteBegin()
 					err := this.removeCacheFile(path)
-					fsutils.WriteEnd()
 					if err != nil && !os.IsNotExist(err) {
 						remotelogs.Error("CACHE", "purge '"+path+"' error: "+err.Error())
 					}
@@ -1236,8 +1291,9 @@ func (this *FileStorage) hotLoop() {
 			size = len(result) / 10
 		}
 
-		var buf = utils.BytePool16k.Get()
-		defer utils.BytePool16k.Put(buf)
+		var buf = bytepool.Pool16k.Get()
+
+		defer bytepool.Pool16k.Put(buf)
 		for _, item := range result[:size] {
 			reader, err := this.openReader(item.Key, false, false, false)
 			if err != nil {
@@ -1278,8 +1334,8 @@ func (this *FileStorage) hotLoop() {
 				continue
 			}
 
-			err = reader.ReadHeader(buf, func(n int) (goNext bool, err error) {
-				_, err = writer.WriteHeader(buf[:n])
+			err = reader.ReadHeader(buf.Bytes, func(n int) (goNext bool, err error) {
+				_, err = writer.WriteHeader(buf.Bytes[:n])
 				return
 			})
 			if err != nil {
@@ -1288,10 +1344,10 @@ func (this *FileStorage) hotLoop() {
 				continue
 			}
 
-			err = reader.ReadBody(buf, func(n int) (goNext bool, err error) {
+			err = reader.ReadBody(buf.Bytes, func(n int) (goNext bool, err error) {
 				goNext = true
 				if n > 0 {
-					_, err = writer.Write(buf[:n])
+					_, err = writer.Write(buf.Bytes[:n])
 					if err != nil {
 						goNext = false
 					}
@@ -1399,7 +1455,7 @@ func (this *FileStorage) increaseHit(key string, hash string, reader Reader) {
 
 		// 增加到热点
 		// 这里不收录缓存尺寸过大的文件
-		if memoryStorage != nil && reader.BodySize() > 0 && reader.BodySize() < 128*sizes.M {
+		if memoryStorage != nil && reader.BodySize() > 0 && reader.BodySize() < (128<<20) {
 			this.hotMapLocker.Lock()
 			hotItem, ok := this.hotMap[key]
 
@@ -1432,7 +1488,7 @@ func (this *FileStorage) removeCacheFile(path string) error {
 		openFileCache.Close(path)
 	}
 
-	var err = os.Remove(path)
+	var err = fsutils.Remove(path)
 	if err == nil || os.IsNotExist(err) {
 		err = nil
 
@@ -1444,7 +1500,8 @@ func (this *FileStorage) removeCacheFile(path string) error {
 
 		_, statErr := os.Stat(partialPath)
 		if statErr == nil {
-			_ = os.Remove(partialPath)
+			_ = fsutils.Remove(partialPath)
+			SharedPartialRangesQueue.Delete(partialPath)
 		}
 	}
 	return err

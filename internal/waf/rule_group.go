@@ -2,7 +2,6 @@ package waf
 
 import (
 	"fmt"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 

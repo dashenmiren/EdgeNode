@@ -1,11 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package writers
 
 import (
 	"context"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"time"
-
-	"github.com/iwind/TeaGo/types"
 )
 
 // RateLimitWriter 限速写入

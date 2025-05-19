@@ -1,9 +1,10 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
+	"net/http"
 )
 
 func (this *HTTPRequest) doRequestLimit() (shouldStop bool) {

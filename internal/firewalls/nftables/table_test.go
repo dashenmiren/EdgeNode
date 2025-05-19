@@ -1,11 +1,11 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build linux
 
 package nftables_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/firewalls/nftables"
+	"testing"
 )
 
 func getIPv4Table(t *testing.T) *nftables.Table {

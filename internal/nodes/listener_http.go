@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/iwind/TeaGo/Tea"
 	"io"
 	"log"
 	"net"
@@ -11,9 +13,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/iwind/TeaGo/Tea"
 )
 
 var httpErrorLogger = log.New(io.Discard, "", 0)
@@ -173,14 +172,11 @@ func (this *HTTPListener) ServeHTTPWithAddr(rawWriter http.ResponseWriter, rawRe
 
 	server, serverName := this.findNamedServer(domain, false)
 	if server == nil {
-		if server == nil {
-			// 增加默认的一个服务
-			server = this.emptyServer()
-		} else {
-			serverName = domain
-		}
+		server = this.emptyServer()
 	} else if !server.CNameAsDomain && server.CNameDomain == domain {
 		server = this.emptyServer()
+	} else {
+		serverName = domain
 	}
 
 	// 绑定连接

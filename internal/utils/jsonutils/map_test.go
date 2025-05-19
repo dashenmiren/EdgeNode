@@ -1,10 +1,11 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package jsonutils
 
 import (
-	"testing"
-
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/maps"
+	"testing"
 )
 
 func TestMapToObject(t *testing.T) {

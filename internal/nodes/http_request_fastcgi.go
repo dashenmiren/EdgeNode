@@ -1,15 +1,10 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
-	"path/filepath"
-	"strings"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
@@ -18,6 +13,12 @@ import (
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	"github.com/iwind/gofcgi/pkg/fcgi"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"strings"
 )
 
 func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
@@ -205,9 +206,9 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 	this.writer.WriteHeader(resp.StatusCode)
 
 	// 输出到客户端
-	pool := this.bytePool(resp.ContentLength)
-	buf := pool.Get()
-	_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+	var pool = this.bytePool(resp.ContentLength)
+	var buf = pool.Get()
+	_, err = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
 	pool.Put(buf)
 
 	closeErr := resp.Body.Close()

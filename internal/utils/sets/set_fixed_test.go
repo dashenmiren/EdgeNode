@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package setutils_test
 
 import (
-	"testing"
-
 	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
+	"testing"
 )
 
 func TestNewFixedSet(t *testing.T) {

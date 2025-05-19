@@ -1,11 +1,10 @@
 package checkpoints
 
 import (
-	"net"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
+	"net"
 )
 
 type RequestRawRemoteAddrCheckpoint struct {

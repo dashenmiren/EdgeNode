@@ -1,10 +1,9 @@
 package nodes
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	_ "github.com/iwind/TeaGo/bootstrap"
+	"testing"
 )
 
 func TestNode_Start(t *testing.T) {

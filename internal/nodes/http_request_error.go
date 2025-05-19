@@ -1,12 +1,11 @@
 package nodes
 
 import (
-	"net/http"
-	"strings"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/types"
+	"net/http"
+	"strings"
 )
 
 const httpStatusPageTemplate = `<!DOCTYPE html>

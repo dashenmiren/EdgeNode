@@ -1,16 +1,17 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package stats_test
 
 import (
-	"runtime"
-	"runtime/debug"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/stats"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"runtime"
+	"runtime/debug"
+	"testing"
+	"time"
 )
 
 func TestUserAgentParser_Parse(t *testing.T) {

@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package dbs_test
 
 import (
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/dbs"
 	"github.com/iwind/TeaGo/logs"
+	"testing"
+	"time"
 )
 
 func TestQueryStatManager(t *testing.T) {

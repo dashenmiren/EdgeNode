@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package compressions_test
 
 import (
 	"bytes"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
 	"strings"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
 )
 
 func BenchmarkDeflateWriter_Write(b *testing.B) {

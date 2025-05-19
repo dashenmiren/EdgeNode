@@ -1,9 +1,10 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package fsutils_test
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/fs"
 	"testing"
-
-	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
 )
 
 func TestLocker_Lock(t *testing.T) {

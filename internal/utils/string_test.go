@@ -1,12 +1,11 @@
 package utils_test
 
 import (
-	"strings"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/types"
+	"strings"
+	"testing"
 )
 
 func TestBytesToString(t *testing.T) {
@@ -70,7 +69,7 @@ func TestContainsSameStrings(t *testing.T) {
 
 func TestToValidUTF8string(t *testing.T) {
 	for _, s := range []string{
-		"https://google.com/",
+		"https://cdn.foyeseo.com/",
 		"提升mysql数据表写入速度",
 		"😆",
 		string([]byte{'a', 'b', 130, 131, 132, 133, 134, 'c'}),

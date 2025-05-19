@@ -1,11 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package expires
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 	"sync"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
 )
 
 var SharedManager = NewManager()

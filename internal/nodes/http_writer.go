@@ -1,3 +1,5 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
@@ -5,6 +7,21 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
+	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
+	"github.com/dashenmiren/EdgeNode/internal/utils/writers"
+	_ "github.com/biessek/golang-ico"
+	"github.com/iwind/TeaGo/types"
+	"github.com/iwind/gowebp"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
 	"image"
 	"image/gif"
 	_ "image/jpeg"
@@ -18,22 +35,6 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
-
-	_ "github.com/biessek/golang-ico"
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
-	setutils "github.com/dashenmiren/EdgeNode/internal/utils/sets"
-	"github.com/dashenmiren/EdgeNode/internal/utils/writers"
-	"github.com/iwind/TeaGo/types"
-	"github.com/iwind/gowebp"
-	_ "golang.org/x/image/bmp"
-	_ "golang.org/x/image/webp"
 )
 
 var webPThreads int32
@@ -87,6 +88,8 @@ type HTTPWriter struct {
 
 	cacheReader       caches.Reader
 	cacheReaderSuffix string
+
+	statusSent bool
 }
 
 // NewHTTPWriter 包装对象
@@ -353,7 +356,25 @@ func (this *HTTPWriter) PrepareCache(resp *http.Response, size int64) {
 	this.cacheWriter = cacheWriter
 
 	if this.isPartial {
-		this.partialFileIsNew = cacheWriter.(*caches.PartialFileWriter).IsNew()
+		partialWriter, ok := cacheWriter.(*caches.PartialFileWriter)
+		if ok {
+			// 判断是否新创建的缓存文件
+			this.partialFileIsNew = partialWriter.IsNew()
+
+			if this.partialFileIsNew {
+				var contentMD5 = this.rawWriter.Header().Get("Content-MD5")
+				if len(contentMD5) > 0 {
+					partialWriter.SetContentMD5(contentMD5)
+				}
+			} else {
+				// 对比Content-MD5
+				if partialWriter.Ranges().Version >= 2 && partialWriter.Ranges().ContentMD5 != this.Header().Get("Content-MD5") {
+					_ = this.cacheWriter.Discard()
+					this.cacheWriter = nil
+					return
+				}
+			}
+		}
 	}
 
 	// 写入Header
@@ -366,7 +387,7 @@ func (this *HTTPWriter) PrepareCache(resp *http.Response, size int64) {
 			if this.isPartial && k == "Content-Type" && strings.Contains(v1, "multipart/byteranges") {
 				continue
 			}
-			_, err = headerBuf.Write([]byte(k + ":" + v1 + "\n"))
+			_, err = headerBuf.WriteString(k + ":" + v1 + "\n")
 			if err != nil {
 				utils.SharedBufferPool.Put(headerBuf)
 
@@ -613,12 +634,18 @@ func (this *HTTPWriter) PrepareCompression(resp *http.Response, size int64) {
 		return
 	}
 
-	// 分区内容不压缩，防止读取失败
-	if !this.compressionConfig.EnablePartialContent && this.StatusCode() == http.StatusPartialContent {
+	// 检查是否正繁忙
+	if compressions.IsBusy() {
 		return
 	}
 
-	if this.compressionConfig.Level < 0 {
+	// 检查URL
+	if !this.compressionConfig.MatchURL(this.req.URL()) {
+		return
+	}
+
+	// 分区内容不压缩，防止读取失败
+	if !this.compressionConfig.EnablePartialContent && this.StatusCode() == http.StatusPartialContent {
 		return
 	}
 
@@ -693,15 +720,15 @@ func (this *HTTPWriter) PrepareCompression(resp *http.Response, size int64) {
 		}
 
 		// 写入Header
-		var headerBuffer = utils.SharedBufferPool.Get()
+		var headerBuf = utils.SharedBufferPool.Get()
 		for k, v := range this.Header() {
 			if this.shouldIgnoreHeader(k) {
 				continue
 			}
 			for _, v1 := range v {
-				_, err = headerBuffer.Write([]byte(k + ":" + v1 + "\n"))
+				_, err = headerBuf.WriteString(k + ":" + v1 + "\n")
 				if err != nil {
-					utils.SharedBufferPool.Put(headerBuffer)
+					utils.SharedBufferPool.Put(headerBuf)
 					remotelogs.Error("HTTP_WRITER", "write compression cache failed: "+err.Error())
 					_ = compressionCacheWriter.Discard()
 					compressionCacheWriter = nil
@@ -709,34 +736,32 @@ func (this *HTTPWriter) PrepareCompression(resp *http.Response, size int64) {
 				}
 			}
 		}
-
-		_, err = compressionCacheWriter.WriteHeader(headerBuffer.Bytes())
-		utils.SharedBufferPool.Put(headerBuffer)
+		_, err = compressionCacheWriter.WriteHeader(headerBuf.Bytes())
+		utils.SharedBufferPool.Put(headerBuf)
 		if err != nil {
 			remotelogs.Error("HTTP_WRITER", "write compression cache failed: "+err.Error())
 			_ = compressionCacheWriter.Discard()
 			compressionCacheWriter = nil
 			return
 		}
-
-		if compressionCacheWriter != nil {
-			if this.compressionCacheWriter != nil {
-				_ = this.compressionCacheWriter.Close()
-			}
-			this.compressionCacheWriter = compressionCacheWriter
-			var teeWriter = writers.NewTeeWriterCloser(this.writer, compressionCacheWriter)
-			teeWriter.OnFail(func(err error) {
-				_ = compressionCacheWriter.Discard()
-				this.compressionCacheWriter = nil
-			})
-			this.writer = teeWriter
+		if this.compressionCacheWriter != nil {
+			_ = this.compressionCacheWriter.Close()
 		}
+		this.compressionCacheWriter = compressionCacheWriter
+		var teeWriter = writers.NewTeeWriterCloser(this.writer, compressionCacheWriter)
+		teeWriter.OnFail(func(err error) {
+			_ = compressionCacheWriter.Discard()
+			this.compressionCacheWriter = nil
+		})
+		this.writer = teeWriter
 	}
 
 	// compression writer
 	compressionWriter, err := compressions.NewWriter(this.writer, compressionType, int(this.compressionConfig.Level))
 	if err != nil {
-		remotelogs.Error("HTTP_WRITER", err.Error())
+		if !compressions.CanIgnore(err) {
+			remotelogs.Error("HTTP_WRITER", "open compress writer failed: "+err.Error())
+		}
 		header.Del("Content-Encoding")
 		if this.compressionCacheWriter != nil {
 			_ = this.compressionCacheWriter.Discard()
@@ -839,6 +864,11 @@ func (this *HTTPWriter) SetSentHeaderBytes(sentHeaderBytes int64) {
 
 // WriteHeader 写入状态码
 func (this *HTTPWriter) WriteHeader(statusCode int) {
+	if this.statusSent {
+		return
+	}
+	this.statusSent = true
+
 	if this.rawWriter != nil {
 		this.rawWriter.WriteHeader(statusCode)
 	}
@@ -885,7 +915,7 @@ func (this *HTTPWriter) SendFile(status int, path string) (int64, error) {
 	var buf = bufPool.Get()
 	defer bufPool.Put(buf)
 
-	written, err := io.CopyBuffer(this, fp, buf)
+	written, err := io.CopyBuffer(this, fp, buf.Bytes)
 	if err != nil {
 		return written, err
 	}
@@ -906,7 +936,7 @@ func (this *HTTPWriter) SendResp(resp *http.Response) (int64, error) {
 	var buf = bufPool.Get()
 	defer bufPool.Put(buf)
 
-	return io.CopyBuffer(this, resp.Body, buf)
+	return io.CopyBuffer(this, resp.Body, buf.Bytes)
 }
 
 // Redirect 跳转
@@ -1293,6 +1323,6 @@ func (this *HTTPWriter) shouldIgnoreHeader(name string) bool {
 	case "Set-Cookie", "Strict-Transport-Security", "Alt-Svc", "Upgrade", "X-Cache":
 		return true
 	default:
-		return (this.isPartial && name == "Content-Range")
+		return this.isPartial && name == "Content-Range"
 	}
 }

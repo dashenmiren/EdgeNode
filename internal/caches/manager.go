@@ -2,18 +2,17 @@ package caches
 
 import (
 	"fmt"
-	"strconv"
-	"sync"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	memutils "github.com/dashenmiren/EdgeNode/internal/utils/mem"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/types"
 	"golang.org/x/sys/unix"
+	"strconv"
+	"sync"
 )
 
 var SharedManager = NewManager()
@@ -150,7 +149,7 @@ func (this *Manager) UpdatePolicies(newPolicies []*serverconfigs.HTTPCachePolicy
 	}
 
 	this.CountFileStorages = 0
-	this.CountFileStorages = 0
+	this.CountMemoryStorages = 0
 	for _, storage := range this.storageMap {
 		_, isFileStorage := storage.(*FileStorage)
 		this.CountMemoryStorages++
@@ -300,7 +299,7 @@ func (this *Manager) MaxSystemMemoryBytesPerStorage() int64 {
 		count = 1
 	}
 
-	var resultBytes = int64(utils.SystemMemoryBytes()) / 3 / int64(count) // 1/3 of the system memory
+	var resultBytes = int64(memutils.SystemMemoryBytes()) / 3 / int64(count) // 1/3 of the system memory
 	if resultBytes < 1<<30 {
 		resultBytes = 1 << 30
 	}

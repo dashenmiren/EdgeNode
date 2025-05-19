@@ -1,12 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
 //go:build !plus || !linux
 
 package compressions
 
 import (
+	"github.com/andybalholm/brotli"
 	"io"
 	"strings"
-
-	"github.com/andybalholm/brotli"
 )
 
 type BrotliReader struct {

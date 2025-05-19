@@ -1,9 +1,10 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package agents
 
 import (
-	"testing"
-
 	"github.com/iwind/TeaGo/logs"
+	"testing"
 )
 
 func TestNewIPCacheMap(t *testing.T) {

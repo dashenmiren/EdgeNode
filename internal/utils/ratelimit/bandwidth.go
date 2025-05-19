@@ -1,11 +1,12 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package ratelimit
 
 import (
 	"context"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"sync/atomic"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 // Bandwidth lossy bandwidth limiter

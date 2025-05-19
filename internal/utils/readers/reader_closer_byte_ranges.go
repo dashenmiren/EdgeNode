@@ -1,14 +1,15 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package readers
 
 import (
 	"bytes"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"mime/multipart"
 	"net/textproto"
 	"regexp"
 	"strings"
-
-	"github.com/iwind/TeaGo/types"
 )
 
 type OnPartReadHandler func(start int64, end int64, total int64, data []byte, header textproto.MIMEHeader)

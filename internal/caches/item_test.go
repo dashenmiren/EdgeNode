@@ -1,17 +1,18 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
 	"encoding/json"
-	"runtime"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
+	"runtime"
+	"testing"
+	"time"
 )
 
 func TestItem_Marshal(t *testing.T) {
@@ -107,9 +108,9 @@ func TestItems_Memory2(t *testing.T) {
 
 func TestItem_RequestURI(t *testing.T) {
 	for _, u := range []string{
-		"https://google.com/hello/world",
-		"https://google.com:8080/hello/world",
-		"https://google.com/hello/world?v=1&t=123",
+		"https://cdn.foyeseo.com/hello/world",
+		"https://cdn.foyeseo.com:8080/hello/world",
+		"https://cdn.foyeseo.com/hello/world?v=1&t=123",
 	} {
 		var item = &caches.Item{Key: u}
 		t.Log(u, "=>", item.RequestURI())

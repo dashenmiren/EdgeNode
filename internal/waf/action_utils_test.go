@@ -1,13 +1,12 @@
 package waf_test
 
 import (
-	"runtime"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/logs"
 	"github.com/iwind/TeaGo/maps"
+	"runtime"
+	"testing"
 )
 
 func TestFindActionInstance(t *testing.T) {

@@ -3,14 +3,13 @@ package nodes
 import (
 	"crypto/tls"
 	"errors"
-	"net"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/sslconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/types"
+	"net"
 )
 
 type BaseListener struct {

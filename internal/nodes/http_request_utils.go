@@ -3,6 +3,10 @@ package nodes
 import (
 	"crypto/rand"
 	"fmt"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/iwind/TeaGo/types"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,11 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
-	"github.com/iwind/TeaGo/types"
 )
 
 // 搜索引擎和爬虫正则

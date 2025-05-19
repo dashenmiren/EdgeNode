@@ -3,6 +3,12 @@ package caches
 import (
 	"bytes"
 	"errors"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/iwind/TeaGo/Tea"
+	_ "github.com/iwind/TeaGo/bootstrap"
+	"github.com/iwind/TeaGo/logs"
 	"io"
 	"net/http"
 	"runtime"
@@ -10,13 +16,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
-	"github.com/iwind/TeaGo/Tea"
-	_ "github.com/iwind/TeaGo/bootstrap"
-	"github.com/iwind/TeaGo/logs"
 )
 
 func TestFileStorage_Init(t *testing.T) {
@@ -665,7 +664,7 @@ func TestFileStorage_ScanGarbageCaches(t *testing.T) {
 func BenchmarkFileStorage_Read(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	_ = utils.SetRLimit(1024 * 1024)
+	_ = utils.SetRLimit(1 << 20)
 
 	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,

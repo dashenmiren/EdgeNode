@@ -1,13 +1,9 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package nodes
 
 import (
 	"fmt"
-	"net"
-	"os"
-	"strings"
-	"sync/atomic"
-	"time"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/conns"
@@ -21,6 +17,11 @@ import (
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/types"
+	"net"
+	"os"
+	"strings"
+	"sync/atomic"
+	"time"
 )
 
 // ClientConn 客户端连接

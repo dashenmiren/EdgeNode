@@ -1,14 +1,15 @@
+// Copyright 2023 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package fsutils
 
 import (
 	"encoding/json"
-	"os"
-	"sync/atomic"
-	"time"
-
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/shirou/gopsutil/v3/load"
+	"os"
+	"time"
 )
 
 type Speed int
@@ -35,9 +36,8 @@ const (
 )
 
 var (
-	DiskSpeed           = SpeedLow
-	DiskMaxWrites int32 = 32
-	DiskSpeedMB   float64
+	DiskSpeed   = SpeedLow
+	DiskSpeedMB float64
 )
 
 var IsInHighLoad = false
@@ -54,8 +54,9 @@ func init() {
 	}
 
 	// test disk
-	go func() {
+	goman.New(func() {
 		// load last result from local disk
+		var countTests int
 		cacheData, cacheErr := os.ReadFile(Tea.Root + "/data/" + diskSpeedDataFile)
 		if cacheErr == nil {
 			var cache = &DiskSpeedCache{}
@@ -63,36 +64,38 @@ func init() {
 			if err == nil && cache.SpeedMB > 0 {
 				DiskSpeedMB = cache.SpeedMB
 				DiskSpeed = cache.Speed
-				calculateDiskMaxWrites()
+				countTests = cache.CountTests
 			}
 		}
 
-		// initial check
-		_, _, _ = CheckDiskIsFast()
+		if countTests < 12 {
+			// initial check
+			_, _, _ = CheckDiskIsFast()
 
-		// check every one hour
-		var ticker = time.NewTicker(1 * time.Hour)
-		var count = 0
-		for range ticker.C {
-			_, _, err := CheckDiskIsFast()
-			if err == nil {
-				count++
-				if count > 24 {
-					return
+			// check every one hour
+			var ticker = time.NewTicker(1 * time.Hour)
+			var count = 0
+			for range ticker.C {
+				_, _, err := CheckDiskIsFast()
+				if err == nil {
+					count++
+					if count > 24 {
+						return
+					}
 				}
 			}
 		}
-	}()
+	})
 
 	// check high load
-	go func() {
+	goman.New(func() {
 		var ticker = time.NewTicker(5 * time.Second)
 		for range ticker.C {
 			stat, _ := load.Avg()
 			IsInExtremelyHighLoad = stat != nil && stat.Load1 > extremelyHighLoad1Threshold
 			IsInHighLoad = stat != nil && stat.Load1 > highLoad1Threshold && !DiskIsFast()
 		}
-	}()
+	})
 }
 
 func DiskIsFast() bool {
@@ -107,35 +110,16 @@ func DiskIsExtremelyFast() bool {
 	return DiskSpeed == SpeedExtremelyFast
 }
 
-var countWrites int32 = 0
-
-func WriteReady() bool {
-	if IsInExtremelyHighLoad {
-		return false
-	}
-
-	return atomic.LoadInt32(&countWrites) < DiskMaxWrites
-}
-
-func WriteBegin() {
-	atomic.AddInt32(&countWrites, 1)
-}
-
-func WriteEnd() {
-	atomic.AddInt32(&countWrites, -1)
-}
-
-func calculateDiskMaxWrites() {
-	switch DiskSpeed {
-	case SpeedExtremelyFast:
-		DiskMaxWrites = 256
-	case SpeedFast:
-		DiskMaxWrites = 128
-	case SpeedLow:
-		DiskMaxWrites = 32
-	case SpeedExtremelySlow:
-		DiskMaxWrites = 16
-	default:
-		DiskMaxWrites = 16
+// WaitLoad wait system load to downgrade
+func WaitLoad(maxLoad float64, maxLoops int, delay time.Duration) {
+	for i := 0; i < maxLoops; i++ {
+		stat, err := load.Avg()
+		if err == nil {
+			if stat.Load1 > maxLoad {
+				time.Sleep(delay)
+			} else {
+				return
+			}
+		}
 	}
 }

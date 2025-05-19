@@ -1,20 +1,21 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package caches_test
 
 import (
-	"math/big"
-	"runtime"
-	"strconv"
-	"testing"
-	"time"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
-	"github.com/dashenmiren/EdgeNode/internal/zero"
+	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"
+	"math/big"
+	"runtime"
+	"strconv"
+	"testing"
+	"time"
 )
 
 func TestFileListHashMap_Memory(t *testing.T) {

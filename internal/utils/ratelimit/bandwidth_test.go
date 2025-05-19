@@ -1,11 +1,12 @@
+// Copyright 2024 GoEdge CDN goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package ratelimit_test
 
 import (
 	"context"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/ratelimit"
 	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"testing"
 )
 
 func TestBandwidth(t *testing.T) {
@@ -15,8 +16,8 @@ func TestBandwidth(t *testing.T) {
 
 	var bandwidth = ratelimit.NewBandwidth(32 << 10)
 	bandwidth.Ack(context.Background(), 123)
-	bandwidth.Ack(context.Background(), 16<<10)
-	bandwidth.Ack(context.Background(), 32<<10)
+	bandwidth.Ack(context.Background(), 16 << 10)
+	bandwidth.Ack(context.Background(), 32 << 10)
 }
 
 func TestBandwidth_0(t *testing.T) {

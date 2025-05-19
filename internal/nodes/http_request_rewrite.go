@@ -1,9 +1,8 @@
 package nodes
 
 import (
-	"net/http"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"net/http"
 )
 
 // 调用Rewrite

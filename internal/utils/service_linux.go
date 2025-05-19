@@ -6,15 +6,14 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"regexp"
-	"time"
-
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
+	"os"
+	"os/exec"
+	"regexp"
+	"time"
 )
 
 var systemdServiceFile = "/etc/systemd/system/edge-node.service"
@@ -114,7 +113,7 @@ func (this *ServiceManager) installInitService(exePath string, args []string) er
 // install systemd service
 func (this *ServiceManager) installSystemdService(systemd, exePath string, args []string) error {
 	var shortName = teaconst.SystemdServiceName
-	var longName = "GoCDN Node" // TODO 将来可以修改
+	var longName = "GoEdge Node" // TODO 将来可以修改
 
 	var startCmd = exePath + " daemon"
 	bashPath, _ := executils.LookPath("bash")

@@ -1,11 +1,12 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package checkpoints_test
 
 import (
-	"net/http"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"net/http"
+	"testing"
 )
 
 func TestRequestHeaderNamesCheckpoint_RequestValue(t *testing.T) {

@@ -1,3 +1,5 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package nodes
 
 import (
@@ -5,6 +7,18 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/compressions"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/utils/bytepool"
+	connutils "github.com/dashenmiren/EdgeNode/internal/utils/conns"
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/iwind/TeaGo/Tea"
 	"io"
 	"net"
 	"net/http"
@@ -13,18 +27,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/dashenmiren/EdgeNode/internal/compressions"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/goman"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	connutils "github.com/dashenmiren/EdgeNode/internal/utils/conns"
-	"github.com/iwind/TeaGo/Tea"
 )
 
 func init() {
@@ -244,7 +246,9 @@ func (this *HTTPCacheTaskManager) fetchKey(key *pb.HTTPCacheTaskKey) error {
 	}
 
 	// 读取内容，以便于生成缓存
-	_, err = io.Copy(io.Discard, resp.Body)
+	var buf = bytepool.Pool16k.Get()
+	_, err = io.CopyBuffer(io.Discard, resp.Body, buf.Bytes)
+	bytepool.Pool16k.Put(buf)
 	if err != nil {
 		if err != io.EOF {
 			err = this.simplifyErr(err)

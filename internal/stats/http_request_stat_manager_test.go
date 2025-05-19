@@ -1,11 +1,10 @@
 package stats
 
 import (
-	"testing"
-
 	iplib "github.com/dashenmiren/EdgeCommon/pkg/iplibrary"
 	_ "github.com/iwind/TeaGo/bootstrap"
 	"github.com/iwind/TeaGo/logs"
+	"testing"
 )
 
 func TestHTTPRequestStatManager_Loop_Region(t *testing.T) {

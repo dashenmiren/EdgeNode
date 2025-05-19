@@ -1,13 +1,14 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package readers_test
 
 import (
 	"bytes"
 	"fmt"
+	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
 	"io"
 	"net/textproto"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
 )
 
 func TestNewByteRangesReader(t *testing.T) {

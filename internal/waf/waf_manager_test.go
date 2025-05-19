@@ -1,11 +1,10 @@
 package waf_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"github.com/iwind/TeaGo/logs"
+	"testing"
 )
 
 func TestWAFManager_convert(t *testing.T) {

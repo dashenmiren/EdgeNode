@@ -1,9 +1,8 @@
 package utils
 
 import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"time"
-
-	"github.com/dashenmiren/EdgeNode/internal/goman"
 )
 
 // Every 定时运行某个函数

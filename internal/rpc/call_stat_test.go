@@ -1,9 +1,10 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package rpc_test
 
 import (
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"testing"
 )
 
 func TestNewCallStat(t *testing.T) {

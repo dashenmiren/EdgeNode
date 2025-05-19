@@ -1,12 +1,13 @@
+// Copyright 2023 GoEdge goedge.cdn@gmail.com. All rights reserved. Official site: https://cdn.foyeseo.com .
+
 package syncutils_test
 
 import (
+	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
-
-	syncutils "github.com/dashenmiren/EdgeNode/internal/utils/sync"
 )
 
 func TestNewRWMutex(t *testing.T) {

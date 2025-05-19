@@ -1,12 +1,13 @@
+// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package caches_test
 
 import (
 	"errors"
 	"fmt"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/caches"
 	"github.com/iwind/TeaGo/assert"
+	"testing"
 )
 
 func TestCanIgnoreErr(t *testing.T) {

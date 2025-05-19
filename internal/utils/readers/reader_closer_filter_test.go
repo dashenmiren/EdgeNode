@@ -1,11 +1,12 @@
+// Copyright 2022 GoEdge goedge.cdn@gmail.com. All rights reserved.
+
 package readers_test
 
 import (
 	"bytes"
 	"errors"
-	"testing"
-
 	"github.com/dashenmiren/EdgeNode/internal/utils/readers"
+	"testing"
 )
 
 func TestNewFilterReader(t *testing.T) {
