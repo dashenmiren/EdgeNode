@@ -1,19 +1,17 @@
 package checkpoints
 
 import (
-	"strings"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
+	"strings"
 )
 
 type RequestHeaderCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestHeaderCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
-	v, found := req.WAFRaw().Header[param]
+func (this *RequestHeaderCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+	v, found := req.Header[param]
 	if !found {
 		value = ""
 		return
@@ -22,13 +20,9 @@ func (this *RequestHeaderCheckpoint) RequestValue(req requests.Request, param st
 	return
 }
 
-func (this *RequestHeaderCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *RequestHeaderCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options, ruleId)
+		return this.RequestValue(req, param, options)
 	}
 	return
-}
-
-func (this *RequestHeaderCheckpoint) CacheLife() utils.CacheLife {
-	return utils.CacheMiddleLife
 }

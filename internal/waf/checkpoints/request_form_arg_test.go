@@ -2,12 +2,11 @@ package checkpoints
 
 import (
 	"bytes"
-	"io"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestFormArgCheckpoint_RequestValue(t *testing.T) {
@@ -16,16 +15,16 @@ func TestRequestFormArgCheckpoint_RequestValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewTestRequest(rawReq)
-	req.WAFRaw().Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req := requests.NewRequest(rawReq)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	checkpoint := new(RequestFormArgCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "name", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "age", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "Hello", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "encoded", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "name", nil))
+	t.Log(checkpoint.RequestValue(req, "age", nil))
+	t.Log(checkpoint.RequestValue(req, "Hello", nil))
+	t.Log(checkpoint.RequestValue(req, "encoded", nil))
 
-	body, err := io.ReadAll(req.WAFRaw().Body)
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

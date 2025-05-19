@@ -3,13 +3,12 @@ package iplibrary
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	"github.com/iwind/TeaGo/maps"
 	"net/http"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/iwind/TeaGo/maps"
 )
 
 var httpAPIClient = &http.Client{
@@ -72,7 +71,7 @@ func (this *HTTPAPIAction) runAction(action string, listType IPListType, item *p
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", teaconst.GlobalProductName+"-Node/"+teaconst.Version)
+	req.Header.Set("User-Agent", "GoEdge-Node/"+teaconst.Version)
 	resp, err := httpAPIClient.Do(req)
 	if err != nil {
 		return err

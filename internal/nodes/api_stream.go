@@ -4,34 +4,28 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"regexp"
-	"runtime"
+	"github.com/TeaOSLab/EdgeCommon/pkg/messageconfigs"
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/TeaOSLab/EdgeNode/internal/caches"
+	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	"github.com/TeaOSLab/EdgeNode/internal/errors"
+	"github.com/TeaOSLab/EdgeNode/internal/events"
+	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
+	"github.com/TeaOSLab/EdgeNode/internal/rpc"
+	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/iwind/TeaGo/logs"
+	"io"
+	"net/http"
+	"os/exec"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/messageconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/caches"
-	"github.com/dashenmiren/EdgeNode/internal/configs"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/errors"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/firewalls"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
-	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/maps"
 )
 
 type APIStream struct {
 	stream pb.NodeService_NodeStreamClient
-
-	isQuiting  bool
-	cancelFunc context.CancelFunc
 }
 
 func NewAPIStream() *APIStream {
@@ -39,23 +33,17 @@ func NewAPIStream() *APIStream {
 }
 
 func (this *APIStream) Start() {
-	events.OnKey(events.EventQuit, this, func() {
-		this.isQuiting = true
-		if this.cancelFunc != nil {
-			this.cancelFunc()
-		}
+	isQuiting := false
+	events.On(events.EventQuit, func() {
+		isQuiting = true
 	})
 	for {
-		if this.isQuiting {
+		if isQuiting {
 			return
 		}
 		err := this.loop()
 		if err != nil {
-			if rpc.IsConnError(err) {
-				remotelogs.Debug("API_STREAM", err.Error())
-			} else {
-				remotelogs.Warn("API_STREAM", err.Error())
-			}
+			remotelogs.Error("API_STREAM", err.Error())
 			time.Sleep(10 * time.Second)
 			continue
 		}
@@ -68,36 +56,38 @@ func (this *APIStream) loop() error {
 	if err != nil {
 		return errors.Wrap(err)
 	}
-
+	isQuiting := false
 	ctx, cancelFunc := context.WithCancel(rpcClient.Context())
-	this.cancelFunc = cancelFunc
+	nodeStream, err := rpcClient.NodeRPC().NodeStream(ctx)
+	events.On(events.EventQuit, func() {
+		isQuiting = true
 
-	defer func() {
-		cancelFunc()
-	}()
-
-	nodeStream, err := rpcClient.NodeRPC.NodeStream(ctx)
+		remotelogs.Println("API_STREAM", "quiting")
+		if nodeStream != nil {
+			cancelFunc()
+		}
+	})
 	if err != nil {
-		if this.isQuiting {
+		if isQuiting {
 			return nil
 		}
-		return err
+		return errors.Wrap(err)
 	}
 	this.stream = nodeStream
 
 	for {
-		if this.isQuiting {
-			remotelogs.Println("API_STREAM", "quit")
+		if isQuiting {
+			logs.Println("API_STREAM", "quit")
 			break
 		}
 
-		message, streamErr := nodeStream.Recv()
-		if streamErr != nil {
-			if this.isQuiting {
+		message, err := nodeStream.Recv()
+		if err != nil {
+			if isQuiting {
 				remotelogs.Println("API_STREAM", "quit")
 				return nil
 			}
-			return streamErr
+			return errors.Wrap(err)
 		}
 
 		// 处理消息
@@ -112,14 +102,14 @@ func (this *APIStream) loop() error {
 			err = this.handleStatCache(message)
 		case messageconfigs.MessageCodeCleanCache: // 清理缓存
 			err = this.handleCleanCache(message)
+		case messageconfigs.MessageCodePurgeCache: // 删除缓存
+			err = this.handlePurgeCache(message)
+		case messageconfigs.MessageCodePreheatCache: // 预热缓存
+			err = this.handlePreheatCache(message)
 		case messageconfigs.MessageCodeNewNodeTask: // 有新的任务
 			err = this.handleNewNodeTask(message)
 		case messageconfigs.MessageCodeCheckSystemdService: // 检查Systemd服务
 			err = this.handleCheckSystemdService(message)
-		case messageconfigs.MessageCodeCheckLocalFirewall: // 检查本地防火墙
-			err = this.handleCheckLocalFirewall(message)
-		case messageconfigs.MessageCodeChangeAPINode: // 修改API节点地址
-			err = this.handleChangeAPINode(message)
 		default:
 			err = this.handleUnknownMessage(message)
 		}
@@ -143,22 +133,16 @@ func (this *APIStream) handleConnectedAPINode(message *pb.NodeStreamMessage) err
 		return errors.Wrap(err)
 	}
 
-	_, err = rpc.SharedRPC()
+	rpcClient, err := rpc.SharedRPC()
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	remotelogs.Println("API_STREAM", "connected to api node '"+strconv.FormatInt(msg.APINodeId, 10)+"'")
-
-	// 重新读取配置
-	if nodeConfigUpdatedAt == 0 {
-		select {
-		case nodeConfigChangedNotify <- true:
-		default:
-
-		}
+	_, err = rpcClient.NodeRPC().UpdateNodeConnectedAPINodes(rpcClient.Context(), &pb.UpdateNodeConnectedAPINodesRequest{ApiNodeIds: []int64{msg.APINodeId}})
+	if err != nil {
+		return errors.Wrap(err)
 	}
-
+	remotelogs.Println("API_STREAM", "connected to api node '"+strconv.FormatInt(msg.APINodeId, 10)+"'")
 	return nil
 }
 
@@ -182,7 +166,7 @@ func (this *APIStream) handleWriteCache(message *pb.NodeStreamMessage) error {
 	}
 
 	expiredAt := time.Now().Unix() + msg.LifeSeconds
-	writer, err := storage.OpenWriter(msg.Key, expiredAt, 200, -1, int64(len(msg.Value)), -1, false)
+	writer, err := storage.OpenWriter(msg.Key, expiredAt, 200)
 	if err != nil {
 		this.replyFail(message.RequestId, "prepare writing failed: "+err.Error())
 		return err
@@ -210,7 +194,7 @@ func (this *APIStream) handleWriteCache(message *pb.NodeStreamMessage) error {
 	storage.AddToList(&caches.Item{
 		Type:       writer.ItemType(),
 		Key:        msg.Key,
-		ExpiresAt:  expiredAt,
+		ExpiredAt:  expiredAt,
 		HeaderSize: writer.HeaderSize(),
 		BodySize:   writer.BodySize(),
 	})
@@ -239,7 +223,7 @@ func (this *APIStream) handleReadCache(message *pb.NodeStreamMessage) error {
 		}()
 	}
 
-	reader, err := storage.OpenReader(msg.Key, false, false)
+	reader, err := storage.OpenReader(msg.Key)
 	if err != nil {
 		if err == caches.ErrNotFound {
 			this.replyFail(message.RequestId, "key not found")
@@ -283,14 +267,14 @@ func (this *APIStream) handleStatCache(message *pb.NodeStreamMessage) error {
 	}
 
 	sizeFormat := ""
-	if stat.Size < (1 << 10) {
+	if stat.Size < 1024 {
 		sizeFormat = strconv.FormatInt(stat.Size, 10) + " Bytes"
-	} else if stat.Size < (1 << 20) {
-		sizeFormat = fmt.Sprintf("%.2f KiB", float64(stat.Size)/(1<<10))
-	} else if stat.Size < (1 << 30) {
-		sizeFormat = fmt.Sprintf("%.2f MiB", float64(stat.Size)/(1<<20))
+	} else if stat.Size < 1024*1024 {
+		sizeFormat = fmt.Sprintf("%.2f KB", float64(stat.Size)/1024)
+	} else if stat.Size < 1024*1024*1024 {
+		sizeFormat = fmt.Sprintf("%.2f MB", float64(stat.Size)/1024/1024)
 	} else {
-		sizeFormat = fmt.Sprintf("%.2f GiB", float64(stat.Size)/(1<<30))
+		sizeFormat = fmt.Sprintf("%.2f GB", float64(stat.Size)/1024/1024/1024)
 	}
 	this.replyOk(message.RequestId, "size:"+sizeFormat+", count:"+strconv.Itoa(stat.Count))
 
@@ -327,6 +311,183 @@ func (this *APIStream) handleCleanCache(message *pb.NodeStreamMessage) error {
 	return nil
 }
 
+// 删除缓存
+func (this *APIStream) handlePurgeCache(message *pb.NodeStreamMessage) error {
+	msg := &messageconfigs.PurgeCacheMessage{}
+	err := json.Unmarshal(message.DataJSON, msg)
+	if err != nil {
+		this.replyFail(message.RequestId, "decode message data failed: "+err.Error())
+		return err
+	}
+
+	storage, shouldStop, err := this.cacheStorage(message, msg.CachePolicyJSON)
+	if err != nil {
+		return err
+	}
+	if shouldStop {
+		defer func() {
+			storage.Stop()
+		}()
+	}
+
+	err = storage.Purge(msg.Keys, msg.Type)
+	if err != nil {
+		this.replyFail(message.RequestId, "purge keys failed: "+err.Error())
+		return err
+	}
+
+	this.replyOk(message.RequestId, "ok")
+
+	return nil
+}
+
+// 预热缓存
+func (this *APIStream) handlePreheatCache(message *pb.NodeStreamMessage) error {
+	msg := &messageconfigs.PreheatCacheMessage{}
+	err := json.Unmarshal(message.DataJSON, msg)
+	if err != nil {
+		this.replyFail(message.RequestId, "decode message data failed: "+err.Error())
+		return err
+	}
+
+	storage, shouldStop, err := this.cacheStorage(message, msg.CachePolicyJSON)
+	if err != nil {
+		return err
+	}
+	if shouldStop {
+		defer func() {
+			storage.Stop()
+		}()
+	}
+
+	if len(msg.Keys) == 0 {
+		this.replyOk(message.RequestId, "ok")
+		return nil
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(msg.Keys))
+	client := http.Client{} // TODO 可以设置请求超时事件
+	errorMessages := []string{}
+	locker := sync.Mutex{}
+	for _, key := range msg.Keys {
+		go func(key string) {
+			defer wg.Done()
+
+			req, err := http.NewRequest(http.MethodGet, key, nil)
+			if err != nil {
+				locker.Lock()
+				errorMessages = append(errorMessages, "invalid url: "+key+": "+err.Error())
+				locker.Unlock()
+				return
+			}
+			// TODO 可以在管理界面自定义Header
+			req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36")
+			req.Header.Set("Accept-Encoding", "gzip, deflate, br") // TODO 这里需要记录下缓存是否为gzip的
+			resp, err := client.Do(req)
+			if err != nil {
+				locker.Lock()
+				errorMessages = append(errorMessages, "request failed: "+key+": "+err.Error())
+				locker.Unlock()
+				return
+			}
+
+			if resp.StatusCode != 200 {
+				locker.Lock()
+				errorMessages = append(errorMessages, "request failed: "+key+": status code '"+strconv.Itoa(resp.StatusCode)+"'")
+				locker.Unlock()
+				return
+			}
+
+			defer func() {
+				_ = resp.Body.Close()
+			}()
+
+			// 检查最大内容长度
+			// TODO 需要解决Chunked Transfer Encoding的长度判断问题
+			maxSize := storage.Policy().MaxSizeBytes()
+			if maxSize > 0 && resp.ContentLength > maxSize {
+				locker.Lock()
+				errorMessages = append(errorMessages, "request failed: the content is too larger than policy setting")
+				locker.Unlock()
+				return
+			}
+
+			expiredAt := time.Now().Unix() + 8600
+			writer, err := storage.OpenWriter(key, expiredAt, 200) // TODO 可以设置缓存过期时间
+			if err != nil {
+				locker.Lock()
+				errorMessages = append(errorMessages, "open cache writer failed: "+key+": "+err.Error())
+				locker.Unlock()
+				return
+			}
+
+			buf := make([]byte, 16*1024)
+			isClosed := false
+
+			// 写入Header
+			for k, v := range resp.Header {
+				for _, v1 := range v {
+					_, err = writer.WriteHeader([]byte(k + ":" + v1 + "\n"))
+					if err != nil {
+						locker.Lock()
+						errorMessages = append(errorMessages, "write failed: "+key+": "+err.Error())
+						locker.Unlock()
+						return
+					}
+				}
+			}
+
+			// 写入Body
+			for {
+				n, err := resp.Body.Read(buf)
+				if n > 0 {
+					_, writerErr := writer.Write(buf[:n])
+					if writerErr != nil {
+						locker.Lock()
+						errorMessages = append(errorMessages, "write failed: "+key+": "+writerErr.Error())
+						locker.Unlock()
+						break
+					}
+				}
+				if err != nil {
+					if err == io.EOF {
+
+						err = writer.Close()
+						if err == nil {
+							storage.AddToList(&caches.Item{
+								Type:      writer.ItemType(),
+								Key:       key,
+								ExpiredAt: expiredAt,
+							})
+						}
+						isClosed = true
+					} else {
+						locker.Lock()
+						errorMessages = append(errorMessages, "read url failed: "+key+": "+err.Error())
+						locker.Unlock()
+					}
+					break
+				}
+			}
+
+			if !isClosed {
+				_ = writer.Close()
+			}
+		}(key)
+	}
+	wg.Wait()
+
+	if len(errorMessages) > 0 {
+		this.replyFail(message.RequestId, strings.Join(errorMessages, ", "))
+		return nil
+	}
+
+	this.replyOk(message.RequestId, "ok")
+
+	return nil
+}
+
 // 处理配置变化
 func (this *APIStream) handleNewNodeTask(message *pb.NodeStreamMessage) error {
 	select {
@@ -340,7 +501,7 @@ func (this *APIStream) handleNewNodeTask(message *pb.NodeStreamMessage) error {
 
 // 检查Systemd服务
 func (this *APIStream) handleCheckSystemdService(message *pb.NodeStreamMessage) error {
-	systemctl, err := executils.LookPath("systemctl")
+	systemctl, err := exec.LookPath("systemctl")
 	if err != nil {
 		this.replyFail(message.RequestId, "'systemctl' not found")
 		return nil
@@ -350,134 +511,19 @@ func (this *APIStream) handleCheckSystemdService(message *pb.NodeStreamMessage) 
 		return nil
 	}
 
-	var shortName = teaconst.SystemdServiceName
-	var cmd = executils.NewTimeoutCmd(10*time.Second, systemctl, "is-enabled", shortName)
-	cmd.WithStdout()
-	err = cmd.Run()
+	cmd := utils.NewCommandExecutor()
+	shortName := teaconst.SystemdServiceName
+	cmd.Add(systemctl, "is-enabled", shortName)
+	output, err := cmd.Run()
 	if err != nil {
 		this.replyFail(message.RequestId, "'systemctl' command error: "+err.Error())
 		return nil
 	}
-	if cmd.Stdout() == "enabled" {
+	if output == "enabled" {
 		this.replyOk(message.RequestId, "ok")
 	} else {
 		this.replyFail(message.RequestId, "not installed")
 	}
-	return nil
-}
-
-// 检查本地防火墙
-func (this *APIStream) handleCheckLocalFirewall(message *pb.NodeStreamMessage) error {
-	var dataMessage = &messageconfigs.CheckLocalFirewallMessage{}
-	err := json.Unmarshal(message.DataJSON, dataMessage)
-	if err != nil {
-		this.replyFail(message.RequestId, "decode message data failed: "+err.Error())
-		return nil
-	}
-
-	// nft
-	if dataMessage.Name == "nftables" {
-		if runtime.GOOS != "linux" {
-			this.replyFail(message.RequestId, "not Linux system")
-			return nil
-		}
-
-		nft, err := executils.LookPath("nft")
-		if err != nil {
-			this.replyFail(message.RequestId, "'nft' not found: "+err.Error())
-			return nil
-		}
-
-		var cmd = executils.NewTimeoutCmd(10*time.Second, nft, "--version")
-		cmd.WithStdout()
-		err = cmd.Run()
-		if err != nil {
-			this.replyFail(message.RequestId, "get version failed: "+err.Error())
-			return nil
-		}
-
-		var outputString = cmd.Stdout()
-		var versionMatches = regexp.MustCompile(`nftables v([\d.]+)`).FindStringSubmatch(outputString)
-		if len(versionMatches) <= 1 {
-			this.replyFail(message.RequestId, "can not get nft version")
-			return nil
-		}
-		var version = versionMatches[1]
-
-		var result = maps.Map{
-			"version": version,
-		}
-
-		var protectionConfig = sharedNodeConfig.DDoSProtection
-		err = firewalls.SharedDDoSProtectionManager.Apply(protectionConfig)
-		if err != nil {
-			this.replyFail(message.RequestId, dataMessage.Name+" was installed, but apply DDoS protection config failed: "+err.Error())
-		} else {
-			this.replyOk(message.RequestId, string(result.AsJSON()))
-		}
-	} else {
-		this.replyFail(message.RequestId, "invalid firewall name '"+dataMessage.Name+"'")
-	}
-
-	return nil
-}
-
-// 修改API地址
-func (this *APIStream) handleChangeAPINode(message *pb.NodeStreamMessage) error {
-	config, err := configs.LoadAPIConfig()
-	if err != nil {
-		this.replyFail(message.RequestId, "read config error: "+err.Error())
-		return nil
-	}
-
-	var messageData = &messageconfigs.ChangeAPINodeMessage{}
-	err = json.Unmarshal(message.DataJSON, messageData)
-	if err != nil {
-		this.replyFail(message.RequestId, "unmarshal message failed: "+err.Error())
-		return nil
-	}
-
-	_, err = url.Parse(messageData.Addr)
-	if err != nil {
-		this.replyFail(message.RequestId, "invalid new api node address: '"+messageData.Addr+"'")
-		return nil
-	}
-
-	config.RPCEndpoints = []string{messageData.Addr}
-
-	// 保存到文件
-	err = config.WriteFile(Tea.ConfigFile(configs.ConfigFileName))
-	if err != nil {
-		this.replyFail(message.RequestId, "save config file failed: "+err.Error())
-		return nil
-	}
-
-	this.replyOk(message.RequestId, "")
-
-	goman.New(func() {
-		// 延后生效，防止变更前的API无法读取到状态
-		time.Sleep(1 * time.Second)
-
-		rpcClient, err := rpc.SharedRPC()
-		if err != nil {
-			remotelogs.Error("API_STREAM", "change rpc endpoint to '"+
-				messageData.Addr+"' failed: "+err.Error())
-			return
-		}
-
-		rpcClient.Close()
-
-		err = rpcClient.UpdateConfig(config)
-		if err != nil {
-			remotelogs.Error("API_STREAM", "change rpc endpoint to '"+
-				messageData.Addr+"' failed: "+err.Error())
-			return
-		}
-
-		remotelogs.Println("API_STREAM", "change rpc endpoint to '"+
-			messageData.Addr+"' successfully")
-	})
-
 	return nil
 }
 
@@ -495,11 +541,6 @@ func (this *APIStream) replyFail(requestId int64, message string) {
 // 回复成功
 func (this *APIStream) replyOk(requestId int64, message string) {
 	_ = this.stream.Send(&pb.NodeStreamMessage{RequestId: requestId, IsOk: true, Message: message})
-}
-
-// 回复成功并包含数据
-func (this *APIStream) replyOkData(requestId int64, message string, dataJSON []byte) {
-	_ = this.stream.Send(&pb.NodeStreamMessage{RequestId: requestId, IsOk: true, Message: message, DataJSON: dataJSON})
 }
 
 // 获取缓存存取对象

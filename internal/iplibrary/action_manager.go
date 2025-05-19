@@ -5,17 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
 	"strconv"
 	"sync"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 )
 
 var SharedActionManager = NewActionManager()
 
-// ActionManager 动作管理器定义
+// 动作管理器定义
 type ActionManager struct {
 	locker sync.Mutex
 
@@ -24,7 +23,7 @@ type ActionManager struct {
 	instanceMap map[int64]ActionInterface                       // id => instance
 }
 
-// NewActionManager 获取动作管理对象
+// 获取动作管理对象
 func NewActionManager() *ActionManager {
 	return &ActionManager{
 		configMap:   map[int64]*firewallconfigs.FirewallActionConfig{},
@@ -32,7 +31,7 @@ func NewActionManager() *ActionManager {
 	}
 }
 
-// UpdateActions 更新配置
+// 更新配置
 func (this *ActionManager) UpdateActions(actions []*firewallconfigs.FirewallActionConfig) {
 	this.locker.Lock()
 	defer this.locker.Unlock()
@@ -69,7 +68,7 @@ func (this *ActionManager) UpdateActions(actions []*firewallconfigs.FirewallActi
 				remotelogs.Error("IPLIBRARY/ACTION_MANAGER", "action "+strconv.FormatInt(newAction.Id, 10)+", type:"+newAction.Type+": "+err.Error())
 				continue
 			}
-			if !bytes.Equal(newConfigJSON, oldConfigJSON) {
+			if bytes.Compare(newConfigJSON, oldConfigJSON) != 0 {
 				_ = oldInstance.Close()
 
 				// 重新创建
@@ -103,20 +102,20 @@ func (this *ActionManager) UpdateActions(actions []*firewallconfigs.FirewallActi
 			continue
 		}
 
-		var instances = this.eventMap[action.EventLevel]
+		instances, _ := this.eventMap[action.EventLevel]
 		instances = append(instances, instance)
 		this.eventMap[action.EventLevel] = instances
 	}
 }
 
-// FindEventActions 查找事件对应的动作
+// 查找事件对应的动作
 func (this *ActionManager) FindEventActions(eventLevel string) []ActionInterface {
 	this.locker.Lock()
 	defer this.locker.Unlock()
 	return this.eventMap[eventLevel]
 }
 
-// AddItem 执行添加IP动作
+// 执行添加IP动作
 func (this *ActionManager) AddItem(listType IPListType, item *pb.IPItem) {
 	instances, ok := this.eventMap[item.EventLevel]
 	if ok {
@@ -129,7 +128,7 @@ func (this *ActionManager) AddItem(listType IPListType, item *pb.IPItem) {
 	}
 }
 
-// DeleteItem 执行删除IP动作
+// 执行删除IP动作
 func (this *ActionManager) DeleteItem(listType IPListType, item *pb.IPItem) {
 	instances, ok := this.eventMap[item.EventLevel]
 	if ok {

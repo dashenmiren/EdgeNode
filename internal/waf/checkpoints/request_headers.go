@@ -1,21 +1,19 @@
 package checkpoints
 
 import (
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/maps"
 	"sort"
 	"strings"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
-	"github.com/iwind/TeaGo/maps"
 )
 
 type RequestHeadersCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestHeadersCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *RequestHeadersCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	var headers = []string{}
-	for k, v := range req.WAFRaw().Header {
+	for k, v := range req.Header {
 		for _, subV := range v {
 			headers = append(headers, k+": "+subV)
 		}
@@ -25,13 +23,9 @@ func (this *RequestHeadersCheckpoint) RequestValue(req requests.Request, param s
 	return
 }
 
-func (this *RequestHeadersCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *RequestHeadersCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options, ruleId)
+		return this.RequestValue(req, param, options)
 	}
 	return
-}
-
-func (this *RequestHeadersCheckpoint) CacheLife() utils.CacheLife {
-	return utils.CacheShortLife
 }

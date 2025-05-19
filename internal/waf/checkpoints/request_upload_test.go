@@ -2,12 +2,11 @@ package checkpoints
 
 import (
 	"bytes"
-	"io"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestUploadCheckpoint_RequestValue(t *testing.T) {
@@ -18,84 +17,63 @@ func TestRequestUploadCheckpoint_RequestValue(t *testing.T) {
 	{
 		part, err := writer.CreateFormField("name")
 		if err == nil {
-			_, err := part.Write([]byte("lu"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("lu"))
 		}
 	}
 
 	{
 		part, err := writer.CreateFormField("age")
 		if err == nil {
-			_, err = part.Write([]byte("20"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("20"))
 		}
 	}
 
 	{
 		part, err := writer.CreateFormFile("myFile", "hello.txt")
 		if err == nil {
-			_, err = part.Write([]byte("Hello, World!"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("Hello, World!"))
 		}
 	}
 
 	{
 		part, err := writer.CreateFormFile("myFile2", "hello.PHP")
 		if err == nil {
-			_, err = part.Write([]byte("Hello, World, PHP!"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("Hello, World, PHP!"))
 		}
 	}
 
 	{
 		part, err := writer.CreateFormFile("myFile3", "hello.asp")
 		if err == nil {
-			_, err = part.Write([]byte("Hello, World, ASP Pages!"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("Hello, World, ASP Pages!"))
 		}
 	}
 
 	{
 		part, err := writer.CreateFormFile("myFile4", "hello.asp")
 		if err == nil {
-			_, err = part.Write([]byte("Hello, World, ASP Pages!"))
-			if err != nil {
-				t.Fatal(err)
-			}
+			part.Write([]byte("Hello, World, ASP Pages!"))
 		}
 	}
 
-	err := writer.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	writer.Close()
 
 	rawReq, err := http.NewRequest(http.MethodPost, "http://teaos.cn/", body)
 	if err != nil {
 		t.Fatal()
 	}
 
-	req := requests.NewTestRequest(rawReq)
-	req.WAFRaw().Header.Add("Content-Type", writer.FormDataContentType())
+	req := requests.NewRequest(rawReq)
+	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	checkpoint := new(RequestUploadCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "field", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "minSize", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "maxSize", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "name", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "ext", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "field", nil))
+	t.Log(checkpoint.RequestValue(req, "minSize", nil))
+	t.Log(checkpoint.RequestValue(req, "maxSize", nil))
+	t.Log(checkpoint.RequestValue(req, "name", nil))
+	t.Log(checkpoint.RequestValue(req, "ext", nil))
 
-	data, err := io.ReadAll(req.WAFRaw().Body)
+	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

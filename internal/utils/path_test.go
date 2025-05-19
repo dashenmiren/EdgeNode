@@ -1,9 +1,8 @@
 package utils
 
 import (
-	"testing"
-
 	"github.com/iwind/TeaGo/assert"
+	"testing"
 )
 
 func TestCleanPath(t *testing.T) {
@@ -15,11 +14,6 @@ func TestCleanPath(t *testing.T) {
 	a.IsTrue(CleanPath("/\\hello\\//world") == "/hello/world")
 	a.IsTrue(CleanPath("hello/world") == "/hello/world")
 	a.IsTrue(CleanPath("/hello////world") == "/hello/world")
-}
-
-func TestCleanPath_Args(t *testing.T) {
-	a := assert.NewAssertion(t)
-	a.IsTrue(CleanPath("/hello/world?base=///////") == "/hello/world?base=///////")
 }
 
 func BenchmarkCleanPath(b *testing.B) {

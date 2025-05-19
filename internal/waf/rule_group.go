@@ -1,14 +1,12 @@
 package waf
 
 import (
-	"fmt"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 )
 
 // rule group
 type RuleGroup struct {
-	Id          int64      `yaml:"id" json:"id"`
+	Id          string     `yaml:"id" json:"id"`
 	IsOn        bool       `yaml:"isOn" json:"isOn"`
 	Name        string     `yaml:"name" json:"name"` // such as SQL Injection
 	Description string     `yaml:"description" json:"description"`
@@ -25,14 +23,14 @@ func NewRuleGroup() *RuleGroup {
 	}
 }
 
-func (this *RuleGroup) Init(waf *WAF) error {
+func (this *RuleGroup) Init() error {
 	this.hasRuleSets = len(this.RuleSets) > 0
 
 	if this.hasRuleSets {
 		for _, set := range this.RuleSets {
-			err := set.Init(waf)
+			err := set.Init()
 			if err != nil {
-				return fmt.Errorf("init set '%d' failed: %w", set.Id, err)
+				return err
 			}
 		}
 	}
@@ -43,7 +41,10 @@ func (this *RuleGroup) AddRuleSet(ruleSet *RuleSet) {
 	this.RuleSets = append(this.RuleSets, ruleSet)
 }
 
-func (this *RuleGroup) FindRuleSet(id int64) *RuleSet {
+func (this *RuleGroup) FindRuleSet(id string) *RuleSet {
+	if len(id) == 0 {
+		return nil
+	}
 	for _, ruleSet := range this.RuleSets {
 		if ruleSet.Id == id {
 			return ruleSet
@@ -64,7 +65,10 @@ func (this *RuleGroup) FindRuleSetWithCode(code string) *RuleSet {
 	return nil
 }
 
-func (this *RuleGroup) RemoveRuleSet(id int64) {
+func (this *RuleGroup) RemoveRuleSet(id string) {
+	if len(id) == 0 {
+		return
+	}
 	result := []*RuleSet{}
 	for _, ruleSet := range this.RuleSets {
 		if ruleSet.Id == id {
@@ -75,7 +79,7 @@ func (this *RuleGroup) RemoveRuleSet(id int64) {
 	this.RuleSets = result
 }
 
-func (this *RuleGroup) MatchRequest(req requests.Request) (b bool, hasRequestBody bool, resultSet *RuleSet, err error) {
+func (this *RuleGroup) MatchRequest(req *requests.Request) (b bool, set *RuleSet, err error) {
 	if !this.hasRuleSets {
 		return
 	}
@@ -83,18 +87,18 @@ func (this *RuleGroup) MatchRequest(req requests.Request) (b bool, hasRequestBod
 		if !set.IsOn {
 			continue
 		}
-		b, hasRequestBody, err = set.MatchRequest(req)
+		b, err = set.MatchRequest(req)
 		if err != nil {
-			return false, hasRequestBody, nil, err
+			return false, nil, err
 		}
 		if b {
-			return true, hasRequestBody, set, nil
+			return true, set, nil
 		}
 	}
 	return
 }
 
-func (this *RuleGroup) MatchResponse(req requests.Request, resp *requests.Response) (b bool, hasRequestBody bool, resultSet *RuleSet, err error) {
+func (this *RuleGroup) MatchResponse(req *requests.Request, resp *requests.Response) (b bool, set *RuleSet, err error) {
 	if !this.hasRuleSets {
 		return
 	}
@@ -102,12 +106,12 @@ func (this *RuleGroup) MatchResponse(req requests.Request, resp *requests.Respon
 		if !set.IsOn {
 			continue
 		}
-		b, hasRequestBody, err = set.MatchResponse(req, resp)
+		b, err = set.MatchResponse(req, resp)
 		if err != nil {
-			return false, hasRequestBody, nil, err
+			return false, nil, err
 		}
 		if b {
-			return true, hasRequestBody, set, nil
+			return true, set, nil
 		}
 	}
 	return

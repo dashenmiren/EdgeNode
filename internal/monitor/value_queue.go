@@ -1,31 +1,22 @@
-// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+// Copyright 2021 Liuxiangchao iwind.liu@gmail.com. All rights reserved.
 
 package monitor
 
 import (
 	"encoding/json"
-	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/rpc"
-	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeNode/internal/events"
+	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
+	"github.com/TeaOSLab/EdgeNode/internal/rpc"
 	"github.com/iwind/TeaGo/maps"
+	"time"
 )
 
 var SharedValueQueue = NewValueQueue()
 
 func init() {
-	if !teaconst.IsMain {
-		return
-	}
-
-	events.On(events.EventLoaded, func() {
-		goman.New(func() {
-			SharedValueQueue.Start()
-		})
+	events.On(events.EventStart, func() {
+		go SharedValueQueue.Start()
 	})
 }
 
@@ -45,7 +36,7 @@ func (this *ValueQueue) Start() {
 	// 这里单次循环就行，因为Loop里已经使用了Range通道
 	err := this.Loop()
 	if err != nil {
-		remotelogs.ErrorObject("MONITOR_QUEUE", err)
+		remotelogs.Error("MONITOR_QUEUE", err.Error())
 	}
 }
 
@@ -75,18 +66,13 @@ func (this *ValueQueue) Loop() error {
 	}
 
 	for value := range this.valuesChan {
-		_, err = rpcClient.NodeValueRPC.CreateNodeValue(rpcClient.Context(), &pb.CreateNodeValueRequest{
+		_, err = rpcClient.NodeValueRPC().CreateNodeValue(rpcClient.Context(), &pb.CreateNodeValueRequest{
 			Item:      value.Item,
 			ValueJSON: value.ValueJSON,
 			CreatedAt: value.CreatedAt,
 		})
 		if err != nil {
-			if rpc.IsConnError(err) {
-				remotelogs.Warn("MONITOR", err.Error())
-			} else {
-				remotelogs.Error("MONITOR", err.Error())
-			}
-			continue
+			return err
 		}
 	}
 	return nil

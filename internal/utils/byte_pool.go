@@ -1,46 +1,53 @@
 package utils
 
-import (
-	"sync"
-)
+var BytePool1024 = NewBytePool(20480, 1024)
 
-var BytePool1k = NewBytePool(1024)
-var BytePool4k = NewBytePool(4 * 1024)
-var BytePool16k = NewBytePool(16 * 1024)
-var BytePool32k = NewBytePool(32 * 1024)
-
-// BytePool pool for get byte slice
+// pool for get byte slice
 type BytePool struct {
-	length  int
-	rawPool *sync.Pool
+	c      chan []byte
+	length int
+
+	lastSize int
 }
 
-// NewBytePool 创建新对象
-func NewBytePool(length int) *BytePool {
-	if length < 0 {
-		length = 1024
+// 创建新对象
+func NewBytePool(maxSize, length int) *BytePool {
+	if maxSize <= 0 {
+		maxSize = 1024
 	}
-	return &BytePool{
+	if length <= 0 {
+		length = 128
+	}
+	pool := &BytePool{
+		c:      make(chan []byte, maxSize),
 		length: length,
-		rawPool: &sync.Pool{
-			New: func() any {
-				return make([]byte, length)
-			},
-		},
+	}
+	return pool
+}
+
+// 获取一个新的byte slice
+func (this *BytePool) Get() (b []byte) {
+	select {
+	case b = <-this.c:
+	default:
+		b = make([]byte, this.length)
+	}
+	return
+}
+
+// 放回一个使用过的byte slice
+func (this *BytePool) Put(b []byte) {
+	if cap(b) != this.length {
+		return
+	}
+	select {
+	case this.c <- b:
+	default:
+		// 已达最大容量，则抛弃
 	}
 }
 
-// Get 获取一个新的byte slice
-func (this *BytePool) Get() []byte {
-	return this.rawPool.Get().([]byte)
-}
-
-// Put 放回一个使用过的byte slice
-func (this *BytePool) Put(b []byte) {
-	this.rawPool.Put(b)
-}
-
-// Length 单个字节slice长度
-func (this *BytePool) Length() int {
-	return this.length
+// 当前的数量
+func (this *BytePool) Size() int {
+	return len(this.c)
 }

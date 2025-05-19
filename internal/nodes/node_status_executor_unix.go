@@ -1,16 +1,13 @@
-//go:build !windows
+// +build !windows
 
 package nodes
 
 import (
-	"runtime"
-	"runtime/debug"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/monitor"
+	"github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
+	"github.com/TeaOSLab/EdgeNode/internal/monitor"
 	"github.com/iwind/TeaGo/maps"
-	"github.com/shirou/gopsutil/v3/load"
-	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 )
 
 // 更新内存
@@ -34,18 +31,6 @@ func (this *NodeStatusExecutor) updateMem(status *nodeconfigs.NodeStatus) {
 		"total": status.MemoryTotal,
 		"used":  stat.Used,
 	})
-
-	// 内存严重不足时自动释放内存
-	if stat.Total > 0 {
-		var minFreeMemory = stat.Total / 8
-		if minFreeMemory > 1<<30 {
-			minFreeMemory = 1 << 30
-		}
-		if stat.Available > 0 && stat.Available < minFreeMemory {
-			runtime.GC()
-			debug.FreeOSMemory()
-		}
-	}
 }
 
 // 更新负载

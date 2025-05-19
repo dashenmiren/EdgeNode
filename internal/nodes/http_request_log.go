@@ -1,133 +1,99 @@
 package nodes
 
 import (
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
-const (
-	// AccessLogMaxRequestBodySize 访问日志存储的请求内容最大尺寸 TODO 此值应该可以在访问日志页设置
-	AccessLogMaxRequestBodySize = 2 << 20
-)
+var requestId int64 = 1_0000_0000_0000_0000
 
 // 日志
 func (this *HTTPRequest) log() {
-	// 检查全局配置
-	if this.nodeConfig != nil && this.nodeConfig.GlobalServerConfig != nil && !this.nodeConfig.GlobalServerConfig.HTTPAccessLog.IsOn {
+	if this.disableLog {
 		return
 	}
 
-	var ref *serverconfigs.HTTPAccessLogRef
-	if !this.forceLog {
-		if this.disableLog {
-			return
-		}
+	// 计算请求时间
+	this.requestCost = time.Since(this.requestFromTime).Seconds()
 
-		// 计算请求时间
-		this.requestCost = time.Since(this.requestFromTime).Seconds()
-
-		ref = this.web.AccessLogRef
-		if ref == nil {
-			ref = serverconfigs.DefaultHTTPAccessLogRef
-		}
-		if !ref.IsOn {
-			return
-		}
-
-		if !ref.Match(this.writer.StatusCode()) {
-			return
-		}
-
-		if ref.FirewallOnly && this.firewallPolicyId == 0 {
-			return
-		}
-
-		// 是否记录499
-		if !ref.EnableClientClosed && this.writer.StatusCode() == 499 {
-			return
-		}
+	ref := this.web.AccessLogRef
+	if ref == nil {
+		ref = serverconfigs.DefaultHTTPAccessLogRef
+	}
+	if !ref.IsOn {
+		return
 	}
 
-	var addr = this.RawReq.RemoteAddr
-	var index = strings.LastIndex(addr, ":")
+	if !ref.Match(this.writer.StatusCode()) {
+		return
+	}
+
+	if ref.FirewallOnly && this.firewallPolicyId == 0 {
+		return
+	}
+
+	addr := this.RawReq.RemoteAddr
+	index := strings.LastIndex(addr, ":")
 	if index > 0 {
 		addr = addr[:index]
 	}
 
-	var serverGlobalConfig = this.nodeConfig.GlobalServerConfig
-
 	// 请求Cookie
-	var cookies = map[string]string{}
-	var enableCookies = false
-	if serverGlobalConfig == nil || serverGlobalConfig.HTTPAccessLog.EnableCookies {
-		enableCookies = true
-		if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldCookie) {
-			for _, cookie := range this.RawReq.Cookies() {
-				cookies[cookie.Name] = cookie.Value
-			}
+	cookies := map[string]string{}
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldCookie) {
+		for _, cookie := range this.RawReq.Cookies() {
+			cookies[cookie.Name] = cookie.Value
 		}
 	}
 
 	// 请求Header
-	var pbReqHeader = map[string]*pb.Strings{}
-	if serverGlobalConfig == nil || serverGlobalConfig.HTTPAccessLog.EnableRequestHeaders {
-		if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldHeader) {
-			// 是否只记录通用Header
-			var commonHeadersOnly = serverGlobalConfig != nil && serverGlobalConfig.HTTPAccessLog.CommonRequestHeadersOnly
-
-			for k, v := range this.RawReq.Header {
-				if commonHeadersOnly && !serverconfigs.IsCommonRequestHeader(k) {
-					continue
-				}
-				if !enableCookies && k == "Cookie" {
-					continue
-				}
-				pbReqHeader[k] = &pb.Strings{Values: v}
-			}
+	pbReqHeader := map[string]*pb.Strings{}
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldHeader) {
+		for k, v := range this.RawReq.Header {
+			pbReqHeader[k] = &pb.Strings{Values: v}
 		}
 	}
 
 	// 响应Header
-	var pbResHeader = map[string]*pb.Strings{}
-	if serverGlobalConfig == nil || serverGlobalConfig.HTTPAccessLog.EnableResponseHeaders {
-		if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldSentHeader) {
-			for k, v := range this.writer.Header() {
-				pbResHeader[k] = &pb.Strings{Values: v}
-			}
+	pbResHeader := map[string]*pb.Strings{}
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldSentHeader) {
+		for k, v := range this.writer.Header() {
+			pbResHeader[k] = &pb.Strings{Values: v}
 		}
 	}
 
 	// 参数列表
-	var queryString = ""
-	if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldArg) {
+	queryString := ""
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldArg) {
 		queryString = this.requestQueryString()
 	}
 
 	// 浏览器
-	var userAgent = ""
-	if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldUserAgent) || ref.ContainsField(serverconfigs.HTTPAccessLogFieldExtend) {
+	userAgent := ""
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldUserAgent) || ref.ContainsField(serverconfigs.HTTPAccessLogFieldExtend) {
 		userAgent = this.RawReq.UserAgent()
 	}
 
 	// 请求来源
-	var referer = ""
-	if ref == nil || ref.ContainsField(serverconfigs.HTTPAccessLogFieldReferer) {
+	referer := ""
+	if ref.ContainsField(serverconfigs.HTTPAccessLogFieldReferer) {
 		referer = this.RawReq.Referer()
 	}
 
-	var accessLog = &pb.HTTPAccessLog{
-		RequestId:       this.requestId,
-		NodeId:          this.nodeConfig.Id,
-		ServerId:        this.ReqServer.Id,
-		RemoteAddr:      this.requestRemoteAddr(true),
+	accessLog := &pb.HTTPAccessLog{
+		RequestId:       strconv.FormatInt(this.requestFromTime.UnixNano(), 10) + strconv.FormatInt(atomic.AddInt64(&requestId, 1), 10) + sharedNodeConfig.PaddedId(),
+		NodeId:          sharedNodeConfig.Id,
+		ServerId:        this.Server.Id,
+		RemoteAddr:      this.requestRemoteAddr(),
 		RawRemoteAddr:   addr,
 		RemotePort:      int32(this.requestRemotePort()),
 		RemoteUser:      this.requestRemoteUser(),
 		RequestURI:      this.rawURI,
-		RequestPath:     this.Path(),
+		RequestPath:     this.requestPath(),
 		RequestLength:   this.requestLength(),
 		RequestTime:     this.requestCost,
 		RequestMethod:   this.RawReq.Method,
@@ -142,7 +108,7 @@ func (this *HTTPRequest) log() {
 		TimeLocal:       this.requestFromTime.Format("2/Jan/2006:15:04:05 -0700"),
 		Msec:            float64(this.requestFromTime.Unix()) + float64(this.requestFromTime.Nanosecond())/1000000000,
 		Timestamp:       this.requestFromTime.Unix(),
-		Host:            this.ReqHost,
+		Host:            this.Host,
 		Referer:         referer,
 		UserAgent:       userAgent,
 		Request:         this.requestString(),
@@ -162,8 +128,6 @@ func (this *HTTPRequest) log() {
 		FirewallRuleGroupId: this.firewallRuleGroupId,
 		FirewallRuleSetId:   this.firewallRuleSetId,
 		FirewallRuleId:      this.firewallRuleId,
-		FirewallActions:     this.firewallActions,
-		Tags:                this.tags,
 
 		Attrs: this.logAttrs,
 	}
@@ -171,19 +135,9 @@ func (this *HTTPRequest) log() {
 	if this.origin != nil {
 		accessLog.OriginId = this.origin.Id
 		accessLog.OriginAddress = this.originAddr
-		accessLog.OriginStatus = this.originStatus
 	}
 
-	// 请求Body
-	if (ref != nil && ref.ContainsField(serverconfigs.HTTPAccessLogFieldRequestBody)) || this.wafHasRequestBody {
-		accessLog.RequestBody = this.requestBodyData
-
-		if len(accessLog.RequestBody) > AccessLogMaxRequestBodySize {
-			accessLog.RequestBody = accessLog.RequestBody[:AccessLogMaxRequestBodySize]
-		}
-	}
-
-	// TODO 记录匹配的 locationId和rewriteId，非必要需求
+	// TODO 记录匹配的 locationId和rewriteId
 
 	sharedHTTPAccessLogQueue.Push(accessLog)
 }

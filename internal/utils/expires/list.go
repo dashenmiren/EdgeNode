@@ -2,148 +2,91 @@ package expires
 
 import (
 	"sync"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/zero"
+	"time"
 )
 
-type ItemMap = map[uint64]zero.Zero
+type ItemMap = map[int64]bool
 
 type List struct {
-	expireMap map[int64]ItemMap // expires timestamp => map[id]ItemMap
-	itemsMap  map[uint64]int64  // itemId => timestamp
+	expireMap map[int64]ItemMap // expires timestamp => map[id]bool
+	itemsMap  map[int64]int64   // itemId => timestamp
 
-	mu sync.RWMutex
-
-	gcCallback      func(itemId uint64)
-	gcBatchCallback func(itemIds ItemMap)
-
-	lastTimestamp int64
+	locker sync.Mutex
 }
 
 func NewList() *List {
-	var list = &List{
+	return &List{
 		expireMap: map[int64]ItemMap{},
-		itemsMap:  map[uint64]int64{},
+		itemsMap:  map[int64]int64{},
 	}
-
-	SharedManager.Add(list)
-
-	return list
 }
 
-func NewSingletonList() *List {
-	var list = &List{
-		expireMap: map[int64]ItemMap{},
-		itemsMap:  map[uint64]int64{},
+func (this *List) Add(itemId int64, expiredAt int64) {
+	if expiredAt <= time.Now().Unix() {
+		return
 	}
-
-	return list
-}
-
-// Add 添加条目
-// 如果条目已经存在，则覆盖
-func (this *List) Add(itemId uint64, expiresAt int64) {
-	this.mu.Lock()
-	defer this.mu.Unlock()
-
-	if this.lastTimestamp == 0 || this.lastTimestamp > expiresAt {
-		this.lastTimestamp = expiresAt
-	}
+	this.locker.Lock()
+	defer this.locker.Unlock()
 
 	// 是否已经存在
-	oldExpiresAt, ok := this.itemsMap[itemId]
+	_, ok := this.itemsMap[itemId]
 	if ok {
-		if oldExpiresAt == expiresAt {
-			return
-		}
-		delete(this.expireMap[oldExpiresAt], itemId)
-		if len(this.expireMap[oldExpiresAt]) == 0 {
-			delete(this.expireMap, oldExpiresAt)
-		}
+		this.removeItem(itemId)
 	}
 
-	expireItemMap, ok := this.expireMap[expiresAt]
+	expireItemMap, ok := this.expireMap[expiredAt]
 	if ok {
-		expireItemMap[itemId] = zero.New()
+		expireItemMap[itemId] = true
 	} else {
-		this.expireMap[expiresAt] = ItemMap{
-			itemId: zero.New(),
+		expireItemMap = ItemMap{
+			itemId: true,
 		}
+		this.expireMap[expiredAt] = expireItemMap
 	}
 
-	this.itemsMap[itemId] = expiresAt
+	this.itemsMap[itemId] = expiredAt
 }
 
-func (this *List) Remove(itemId uint64) {
-	this.mu.Lock()
-	defer this.mu.Unlock()
+func (this *List) Remove(itemId int64) {
+	this.locker.Lock()
+	defer this.locker.Unlock()
 	this.removeItem(itemId)
 }
 
-func (this *List) ExpiresAt(itemId uint64) int64 {
-	this.mu.RLock()
-	defer this.mu.RUnlock()
-	return this.itemsMap[itemId]
+func (this *List) GC(timestamp int64, callback func(itemId int64)) {
+	this.locker.Lock()
+	itemMap := this.gcItems(timestamp)
+	this.locker.Unlock()
+
+	for itemId := range itemMap {
+		callback(itemId)
+	}
 }
 
-func (this *List) GC(timestamp int64) ItemMap {
-	if this.lastTimestamp > timestamp+1 {
-		return nil
-	}
-	var itemMap = this.gcItems(timestamp)
-	if len(itemMap) == 0 {
-		return itemMap
-	}
-
-	if this.gcCallback != nil {
-		for itemId := range itemMap {
-			this.gcCallback(itemId)
+func (this *List) StartGC(callback func(itemId int64)) {
+	ticker := time.NewTicker(1 * time.Second)
+	lastTimestamp := int64(0)
+	for range ticker.C {
+		timestamp := time.Now().Unix()
+		if lastTimestamp == 0 {
+			lastTimestamp = timestamp - 3600
 		}
+
+		// 防止死循环
+		if lastTimestamp > timestamp {
+			continue
+		}
+
+		for i := lastTimestamp; i <= timestamp; i++ {
+			this.GC(timestamp, callback)
+		}
+
+		// 这样做是为了防止系统时钟突变
+		lastTimestamp = timestamp
 	}
-	if this.gcBatchCallback != nil {
-		this.gcBatchCallback(itemMap)
-	}
-
-	return itemMap
 }
 
-func (this *List) Clean() {
-	this.mu.Lock()
-	this.itemsMap = map[uint64]int64{}
-	this.expireMap = map[int64]ItemMap{}
-	this.mu.Unlock()
-}
-
-func (this *List) Count() int {
-	this.mu.RLock()
-	var count = len(this.itemsMap)
-	this.mu.RUnlock()
-	return count
-}
-
-func (this *List) OnGC(callback func(itemId uint64)) *List {
-	this.gcCallback = callback
-	return this
-}
-
-func (this *List) OnGCBatch(callback func(itemMap ItemMap)) *List {
-	this.gcBatchCallback = callback
-	return this
-}
-
-func (this *List) ExpireMap() map[int64]ItemMap {
-	return this.expireMap
-}
-
-func (this *List) ItemsMap() map[uint64]int64 {
-	return this.itemsMap
-}
-
-func (this *List) LastTimestamp() int64 {
-	return this.lastTimestamp
-}
-
-func (this *List) removeItem(itemId uint64) {
+func (this *List) removeItem(itemId int64) {
 	expiresAt, ok := this.itemsMap[itemId]
 	if !ok {
 		return
@@ -160,18 +103,12 @@ func (this *List) removeItem(itemId uint64) {
 }
 
 func (this *List) gcItems(timestamp int64) ItemMap {
-	this.mu.RLock()
 	expireItemsMap, ok := this.expireMap[timestamp]
-	this.mu.RUnlock()
-
 	if ok {
-		this.mu.Lock()
 		for itemId := range expireItemsMap {
 			delete(this.itemsMap, itemId)
 		}
 		delete(this.expireMap, timestamp)
-		this.mu.Unlock()
 	}
-
 	return expireItemsMap
 }

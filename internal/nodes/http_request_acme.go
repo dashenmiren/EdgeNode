@@ -1,40 +1,33 @@
 package nodes
 
 import (
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
+	"github.com/TeaOSLab/EdgeNode/internal/rpc"
+	"net/http"
 	"path/filepath"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/rpc"
 )
 
-func (this *HTTPRequest) doACME() (shouldStop bool) {
+func (this *HTTPRequest) doACME() {
 	// TODO 对请求进行校验，防止恶意攻击
 
-	var token = filepath.Base(this.RawReq.URL.Path)
-	if token == "acme-challenge" || len(token) <= 32 {
-		return false
-	}
+	token := filepath.Base(this.RawReq.URL.Path)
 
 	rpcClient, err := rpc.SharedRPC()
 	if err != nil {
 		remotelogs.Error("RPC", "[ACME]rpc failed: "+err.Error())
-		return false
+		return
 	}
 
-	keyResp, err := rpcClient.ACMEAuthenticationRPC.FindACMEAuthenticationKeyWithToken(rpcClient.Context(), &pb.FindACMEAuthenticationKeyWithTokenRequest{Token: token})
+	keyResp, err := rpcClient.ACMEAuthenticationRPC().FindACMEAuthenticationKeyWithToken(rpcClient.Context(), &pb.FindACMEAuthenticationKeyWithTokenRequest{Token: token})
 	if err != nil {
 		remotelogs.Error("RPC", "[ACME]read key for token failed: "+err.Error())
-		return false
+		return
 	}
 	if len(keyResp.Key) == 0 {
-		return false
+		this.writer.WriteHeader(http.StatusNotFound)
+	} else {
+		this.writer.Header().Set("Content-Type", "text/plain")
+		_, _ = this.writer.WriteString(keyResp.Key)
 	}
-
-	this.tags = append(this.tags, "ACME")
-
-	this.writer.Header().Set("Content-Type", "text/plain")
-	_, _ = this.writer.WriteString(keyResp.Key)
-
-	return true
 }

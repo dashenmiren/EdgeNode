@@ -1,18 +1,17 @@
 package utils
 
 import (
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/files"
+	"github.com/iwind/TeaGo/logs"
 	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
-
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/files"
-	"github.com/iwind/TeaGo/logs"
 )
 
-// ServiceManager 服务管理器
+// 服务管理器
 type ServiceManager struct {
 	Name        string
 	Description string
@@ -40,7 +39,7 @@ func (this *ServiceManager) setup() {
 	this.onceLocker.Do(func() {
 		logFile := files.NewFile(Tea.Root + "/logs/service.log")
 		if logFile.Exists() {
-			_ = logFile.Delete()
+			logFile.Delete()
 		}
 
 		//logger
@@ -54,7 +53,7 @@ func (this *ServiceManager) setup() {
 	})
 }
 
-// Log 记录普通日志
+// 记录普通日志
 func (this *ServiceManager) Log(msg string) {
 	this.setup()
 	if this.logger == nil {
@@ -63,7 +62,7 @@ func (this *ServiceManager) Log(msg string) {
 	this.logger.Println("[info]" + msg)
 }
 
-// LogError 记录错误日志
+// 记录错误日志
 func (this *ServiceManager) LogError(msg string) {
 	this.setup()
 	if this.logger == nil {
@@ -72,7 +71,7 @@ func (this *ServiceManager) LogError(msg string) {
 	this.logger.Println("[error]" + msg)
 }
 
-// Close 关闭
+// 关闭
 func (this *ServiceManager) Close() error {
 	if this.fp != nil {
 		return this.fp.Close()
@@ -101,7 +100,7 @@ func (this *ServiceManager) resetRoot() {
 	Tea.SetTmpDir(Tea.Root + Tea.DS + "web" + Tea.DS + "tmp")
 }
 
-// PauseWindow 保持命令行窗口是打开的
+// 保持命令行窗口是打开的
 func (this *ServiceManager) PauseWindow() {
 	if runtime.GOOS != "windows" {
 		return

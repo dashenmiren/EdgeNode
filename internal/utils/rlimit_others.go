@@ -1,4 +1,3 @@
-//go:build !linux && !darwin
 // +build !linux,!darwin
 
 package utils
@@ -9,6 +8,6 @@ func SetRLimit(limit uint64) error {
 }
 
 // set best resource limit value
-func SetSuitableRLimit() error {
-	return nil
+func SetSuitableRLimit() {
+
 }

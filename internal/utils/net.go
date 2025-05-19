@@ -1,17 +1,13 @@
-//go:build !freebsd
-// +build !freebsd
-
 package utils
 
 import (
 	"context"
+	"github.com/iwind/TeaGo/logs"
 	"net"
 	"syscall"
-
-	"github.com/iwind/TeaGo/logs"
 )
 
-// ListenReuseAddr 监听可重用的端口
+// 监听可重用的端口
 func ListenReuseAddr(network string, addr string) (net.Listener, error) {
 	config := &net.ListenConfig{
 		Control: func(network, address string, c syscall.RawConn) error {

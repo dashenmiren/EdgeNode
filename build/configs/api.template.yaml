@@ -1,0 +1,4 @@
+rpc:
+  endpoints: [ ${endpoints} ]
+nodeId: "${nodeId}"
+secret: "${nodeSecret}"

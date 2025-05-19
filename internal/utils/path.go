@@ -1,6 +1,6 @@
 package utils
 
-// CleanPath 清理Path中的多余的字符
+// 清理Path中的多余的字符
 func CleanPath(path string) string {
 	l := len(path)
 	if l == 0 {
@@ -9,10 +9,6 @@ func CleanPath(path string) string {
 	result := []byte{'/'}
 	isSlash := true
 	for i := 0; i < l; i++ {
-		if path[i] == '?' {
-			result = append(result, path[i:]...)
-			break
-		}
 		if path[i] == '\\' || path[i] == '/' {
 			if !isSlash {
 				isSlash = true
@@ -25,3 +21,4 @@ func CleanPath(path string) string {
 	}
 	return string(result)
 }
+

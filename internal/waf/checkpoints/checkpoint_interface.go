@@ -1,46 +1,36 @@
 package checkpoints
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
 )
 
-// CheckpointInterface Check Point
+// Check Point
 type CheckpointInterface interface {
-	// Init initialize
+	// initialize
 	Init()
 
-	// IsRequest is request?
+	// is request?
 	IsRequest() bool
 
-	// IsComposed is composed?
+	// is composed?
 	IsComposed() bool
 
-	// RequestValue get request value
-	RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error)
+	// get request value
+	RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error)
 
-	// ResponseValue get response value
-	ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error)
+	// get response value
+	ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error)
 
-	// ParamOptions param option list
+	// param option list
 	ParamOptions() *ParamOptions
 
-	// Options options
+	// options
 	Options() []OptionInterface
 
-	// Start start
+	// start
 	Start()
 
-	// Stop stop
+	// stop
 	Stop()
-
-	// SetPriority set priority
-	SetPriority(priority int)
-
-	// Priority get priority
-	Priority() int
-
-	// CacheLife regexp cache life
-	CacheLife() utils.CacheLife
 }

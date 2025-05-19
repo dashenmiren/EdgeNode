@@ -1,10 +1,9 @@
 package checkpoints
 
 import (
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestHostCheckpoint_RequestValue(t *testing.T) {
@@ -13,9 +12,9 @@ func TestRequestHostCheckpoint_RequestValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewTestRequest(rawReq)
-	req.WAFRaw().Header.Set("Host", "cloud.teaos.cn")
+	req := requests.NewRequest(rawReq)
+	req.Header.Set("Host", "cloud.teaos.cn")
 
 	checkpoint := new(RequestHostCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "", nil))
 }

@@ -1,44 +1,34 @@
 package caches
 
 import (
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/iwind/TeaGo/Tea"
 	"os"
 	"testing"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	fsutils "github.com/dashenmiren/EdgeNode/internal/utils/fs"
-	"github.com/iwind/TeaGo/Tea"
 )
 
 func TestFileReader(t *testing.T) {
-	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
-
-	defer storage.Stop()
-
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	_, path, _ := storage.keyPath("my-key")
+	_, path := storage.keyPath("my-key")
 
 	fp, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			t.Log("file '" + path + "' not exists")
-			return
-		}
 		t.Fatal(err)
 	}
 	defer func() {
 		_ = fp.Close()
 	}()
-	reader := NewFileReader(fsutils.NewFile(fp, fsutils.FlagRead))
+	reader := NewFileReader(fp)
 	err = reader.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -59,55 +49,16 @@ func TestFileReader(t *testing.T) {
 		t.Log("body:", string(buf[:n]))
 		return true, nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestFileReader_ReadHeader(t *testing.T) {
-	var path = "/Users/WorkSpace/EdgeProject/EdgeCache/p43/12/6b/126bbed90fc80f2bdfb19558948b0d49.cache"
-	fp, err := os.Open(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Log("'" + path + "' not exists")
-			return
-		}
-		t.Fatal(err)
-	}
-	defer func() {
-		_ = fp.Close()
-	}()
-	var reader = NewFileReader(fsutils.NewFile(fp, fsutils.FlagRead))
-	err = reader.Init()
-	if err != nil {
-		if os.IsNotExist(err) {
-			t.Log("file '" + path + "' not exists")
-			return
-		}
-
-		t.Fatal(err)
-	}
-	var buf = make([]byte, 16*1024)
-	err = reader.ReadHeader(buf, func(n int) (goNext bool, err error) {
-		t.Log("header:", string(buf[:n]))
-		return
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestFileReader_Range(t *testing.T) {
-	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
-
-	defer storage.Stop()
-
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -127,20 +78,16 @@ func TestFileReader_Range(t *testing.T) {
 	}
 	_ = writer.Close()**/
 
-	_, path, _ := storage.keyPath("my-number")
+	_, path := storage.keyPath("my-number")
 
 	fp, err := os.Open(path)
 	if err != nil {
-		if os.IsNotExist(err) {
-			t.Log("'" + path + "' not exists")
-			return
-		}
 		t.Fatal(err)
 	}
 	defer func() {
 		_ = fp.Close()
 	}()
-	reader := NewFileReader(fsutils.NewFile(fp, fsutils.FlagRead))
+	reader := NewFileReader(fp)
 	err = reader.Init()
 	if err != nil {
 		t.Fatal(err)

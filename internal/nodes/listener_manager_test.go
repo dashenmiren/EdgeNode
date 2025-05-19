@@ -1,10 +1,9 @@
 package nodes
 
 import (
+	"github.com/TeaOSLab/EdgeCommon/pkg/nodeconfigs"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
 	"testing"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 func TestListenerManager_Listen(t *testing.T) {

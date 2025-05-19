@@ -1,37 +1,34 @@
-package waf_test
+package waf
 
 import (
 	"bytes"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/cespare/xxhash"
+	"github.com/iwind/TeaGo/assert"
 	"net/http"
 	"regexp"
 	"runtime"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/cespare/xxhash/v2"
-	"github.com/iwind/TeaGo/assert"
-	"github.com/iwind/TeaGo/maps"
 )
 
 func TestRuleSet_MatchRequest(t *testing.T) {
-	var set = waf.NewRuleSet()
-	set.Connector = waf.RuleConnectorAnd
+	set := NewRuleSet()
+	set.Connector = RuleConnectorAnd
 
-	set.Rules = []*waf.Rule{
+	set.Rules = []*Rule{
 		{
 			Param:    "${arg.name}",
-			Operator: waf.RuleOperatorEqString,
+			Operator: RuleOperatorEqString,
 			Value:    "lu",
 		},
 		{
 			Param:    "${arg.age}",
-			Operator: waf.RuleOperatorEq,
+			Operator: RuleOperatorEq,
 			Value:    "20",
 		},
 	}
 
-	err := set.Init(nil)
+	err := set.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,30 +37,30 @@ func TestRuleSet_MatchRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := requests.NewTestRequest(rawReq)
+	req := requests.NewRequest(rawReq)
 	t.Log(set.MatchRequest(req))
 }
 
 func TestRuleSet_MatchRequest2(t *testing.T) {
-	var a = assert.NewAssertion(t)
+	a := assert.NewAssertion(t)
 
-	var set = waf.NewRuleSet()
-	set.Connector = waf.RuleConnectorOr
+	set := NewRuleSet()
+	set.Connector = RuleConnectorOr
 
-	set.Rules = []*waf.Rule{
+	set.Rules = []*Rule{
 		{
 			Param:    "${arg.name}",
-			Operator: waf.RuleOperatorEqString,
+			Operator: RuleOperatorEqString,
 			Value:    "lu",
 		},
 		{
 			Param:    "${arg.age}",
-			Operator: waf.RuleOperatorEq,
+			Operator: RuleOperatorEq,
 			Value:    "21",
 		},
 	}
 
-	err := set.Init(nil)
+	err := set.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,86 +69,40 @@ func TestRuleSet_MatchRequest2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := requests.NewTestRequest(rawReq)
+	req := requests.NewRequest(rawReq)
 	a.IsTrue(set.MatchRequest(req))
-}
-
-func TestRuleSet_MatchRequest_Allow(t *testing.T) {
-	var a = assert.NewAssertion(t)
-
-	var set = waf.NewRuleSet()
-	set.Connector = waf.RuleConnectorOr
-
-	set.Rules = []*waf.Rule{
-		{
-			Param:    "${requestPath}",
-			Operator: waf.RuleOperatorMatch,
-			Value:    "hello",
-		},
-	}
-
-	set.Actions = []*waf.ActionConfig{
-		{
-			Code: "allow",
-			Options: maps.Map{
-				"scope": waf.AllowScopeGroup,
-			},
-		},
-	}
-
-	var wafInstance = waf.NewWAF()
-
-	err := set.Init(wafInstance)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rawReq, err := http.NewRequest(http.MethodGet, "http://teaos.cn/hello?name=lu&age=20", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var req = requests.NewTestRequest(rawReq)
-	b, _, err := set.MatchRequest(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.IsTrue(b)
-
-	var result = set.PerformActions(wafInstance, &waf.RuleGroup{}, req, nil)
-	a.IsTrue(result.IsAllowed)
-	t.Log("scope:", result.AllowScope)
 }
 
 func BenchmarkRuleSet_MatchRequest(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	var set = waf.NewRuleSet()
-	set.Connector = waf.RuleConnectorOr
+	set := NewRuleSet()
+	set.Connector = RuleConnectorOr
 
-	set.Rules = []*waf.Rule{
+	set.Rules = []*Rule{
 		{
 			Param:    "${requestAll}",
-			Operator: waf.RuleOperatorMatch,
+			Operator: RuleOperatorMatch,
 			Value:    `(onmouseover|onmousemove|onmousedown|onmouseup|onerror|onload|onclick|ondblclick|onkeydown|onkeyup|onkeypress)\s*=`,
 		},
 		{
 			Param:    "${requestAll}",
-			Operator: waf.RuleOperatorMatch,
+			Operator: RuleOperatorMatch,
 			Value:    `\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\s*\(`,
 		},
 		{
 			Param:    "${arg.name}",
-			Operator: waf.RuleOperatorEqString,
+			Operator: RuleOperatorEqString,
 			Value:    "lu",
 		},
 		{
 			Param:    "${arg.age}",
-			Operator: waf.RuleOperatorEq,
+			Operator: RuleOperatorEq,
 			Value:    "21",
 		},
 	}
 
-	err := set.Init(nil)
+	err := set.Init()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -160,28 +111,28 @@ func BenchmarkRuleSet_MatchRequest(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	req := requests.NewTestRequest(rawReq)
+	req := requests.NewRequest(rawReq)
 	for i := 0; i < b.N; i++ {
-		_, _, _ = set.MatchRequest(req)
+		_, _ = set.MatchRequest(req)
 	}
 }
 
 func BenchmarkRuleSet_MatchRequest_Regexp(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	var set = waf.NewRuleSet()
-	set.Connector = waf.RuleConnectorOr
+	set := NewRuleSet()
+	set.Connector = RuleConnectorOr
 
-	set.Rules = []*waf.Rule{
+	set.Rules = []*Rule{
 		{
 			Param:             "${requestBody}",
-			Operator:          waf.RuleOperatorMatch,
+			Operator:          RuleOperatorMatch,
 			Value:             `\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\s*\(`,
 			IsCaseInsensitive: false,
 		},
 	}
 
-	err := set.Init(nil)
+	err := set.Init()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -190,9 +141,9 @@ func BenchmarkRuleSet_MatchRequest_Regexp(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	req := requests.NewTestRequest(rawReq)
+	req := requests.NewRequest(rawReq)
 	for i := 0; i < b.N; i++ {
-		_, _, _ = set.MatchRequest(req)
+		_, _ = set.MatchRequest(req)
 	}
 }
 

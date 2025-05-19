@@ -1,8 +1,7 @@
 package checkpoints
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
 )
 
@@ -10,17 +9,13 @@ type RequestArgCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestArgCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
-	return req.WAFRaw().URL.Query().Get(param), hasRequestBody, nil, nil
+func (this *RequestArgCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+	return req.URL.Query().Get(param), nil, nil
 }
 
-func (this *RequestArgCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *RequestArgCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options, ruleId)
+		return this.RequestValue(req, param, options)
 	}
 	return
-}
-
-func (this *RequestArgCheckpoint) CacheLife() utils.CacheLife {
-	return utils.CacheMiddleLife
 }

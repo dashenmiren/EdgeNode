@@ -2,54 +2,44 @@ package checkpoints
 
 import (
 	"encoding/json"
-	"strings"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	wafutils "github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
+	"strings"
 )
 
-// RequestJSONArgCheckpoint ${requestJSON.arg}
+// ${requestJSON.arg}
 type RequestJSONArgCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestJSONArgCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
-	var bodyData = req.WAFGetCacheBody()
-	hasRequestBody = true
-	if len(bodyData) == 0 {
-		data, err := req.WAFReadBody(req.WAFMaxRequestSize()) // read body
+func (this *RequestJSONArgCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+	if len(req.BodyData) == 0 {
+		data, err := req.ReadBody(int64(32 * 1024 * 1024)) // read 32m bytes
 		if err != nil {
-			return "", hasRequestBody, err, nil
+			return "", err, nil
 		}
-
-		bodyData = data
-		req.WAFSetCacheBody(data)
-		defer req.WAFRestoreBody(data)
+		req.BodyData = data
+		defer req.RestoreBody(data)
 	}
 
 	// TODO improve performance
-	var m any = nil
-	err := json.Unmarshal(bodyData, &m)
+	var m interface{} = nil
+	err := json.Unmarshal(req.BodyData, &m)
 	if err != nil || m == nil {
-		return "", hasRequestBody, nil, err
+		return "", nil, err
 	}
 
 	value = utils.Get(m, strings.Split(param, "."))
 	if value != nil {
-		return value, hasRequestBody, nil, err
+		return value, nil, err
 	}
-	return "", hasRequestBody, nil, nil
+	return "", nil, nil
 }
 
-func (this *RequestJSONArgCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *RequestJSONArgCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options, ruleId)
+		return this.RequestValue(req, param, options)
 	}
 	return
-}
-
-func (this *RequestJSONArgCheckpoint) CacheLife() wafutils.CacheLife {
-	return wafutils.CacheMiddleLife
 }

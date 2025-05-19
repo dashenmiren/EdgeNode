@@ -1,19 +1,24 @@
 package checkpoints
 
 import (
-	"regexp"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils/counters"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/TeaOSLab/EdgeNode/internal/ttlcache"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
+	"net"
+	"regexp"
+	"strings"
+	"sync"
+	"time"
 )
 
-// CCCheckpoint ${cc.arg}
+// ${cc.arg}
 // TODO implement more traffic rules
 type CCCheckpoint struct {
 	Checkpoint
+
+	cache *ttlcache.Cache
+	once  sync.Once
 }
 
 func (this *CCCheckpoint) Init() {
@@ -21,39 +26,52 @@ func (this *CCCheckpoint) Init() {
 }
 
 func (this *CCCheckpoint) Start() {
-
+	if this.cache != nil {
+		this.cache.Destroy()
+	}
+	this.cache = ttlcache.NewCache()
 }
 
-func (this *CCCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *CCCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	value = 0
+
+	if this.cache == nil {
+		this.once.Do(func() {
+			this.Start()
+		})
+		if this.cache == nil {
+			return
+		}
+	}
 
 	periodString, ok := options["period"]
 	if !ok {
 		return
 	}
-	var period = types.Int(periodString)
+	period := types.Int64(periodString)
 	if period < 1 {
 		return
 	}
 
-	if period > 7*86400 {
-		period = 7 * 86400
-	}
+	v, _ := options["userType"]
+	userType := types.String(v)
 
-	var userType = types.String(options["userType"])
-	var userField = types.String(options["userField"])
-	var userIndex = types.Int(options["userIndex"])
+	v, _ = options["userField"]
+	userField := types.String(v)
+
+	v, _ = options["userIndex"]
+	userIndex := types.Int(v)
 
 	if param == "requests" { // requests
 		var key = ""
 		switch userType {
 		case "ip":
-			key = req.WAFRemoteIP()
+			key = this.ip(req)
 		case "cookie":
 			if len(userField) == 0 {
-				key = req.WAFRemoteIP()
+				key = this.ip(req)
 			} else {
-				cookie, _ := req.WAFRaw().Cookie(userField)
+				cookie, _ := req.Cookie(userField)
 				if cookie != nil {
 					v := cookie.Value
 					if userIndex > 0 && len(v) > userIndex {
@@ -64,9 +82,9 @@ func (this *CCCheckpoint) RequestValue(req requests.Request, param string, optio
 			}
 		case "get":
 			if len(userField) == 0 {
-				key = req.WAFRemoteIP()
+				key = this.ip(req)
 			} else {
-				v := req.WAFRaw().URL.Query().Get(userField)
+				v := req.URL.Query().Get(userField)
 				if userIndex > 0 && len(v) > userIndex {
 					v = v[userIndex:]
 				}
@@ -74,9 +92,9 @@ func (this *CCCheckpoint) RequestValue(req requests.Request, param string, optio
 			}
 		case "post":
 			if len(userField) == 0 {
-				key = req.WAFRemoteIP()
+				key = this.ip(req)
 			} else {
-				v := req.WAFRaw().PostFormValue(userField)
+				v := req.PostFormValue(userField)
 				if userIndex > 0 && len(v) > userIndex {
 					v = v[userIndex:]
 				}
@@ -84,29 +102,29 @@ func (this *CCCheckpoint) RequestValue(req requests.Request, param string, optio
 			}
 		case "header":
 			if len(userField) == 0 {
-				key = req.WAFRemoteIP()
+				key = this.ip(req)
 			} else {
-				v := req.WAFRaw().Header.Get(userField)
+				v := req.Header.Get(userField)
 				if userIndex > 0 && len(v) > userIndex {
 					v = v[userIndex:]
 				}
 				key = "USER@" + userType + "@" + userField + "@" + v
 			}
 		default:
-			key = req.WAFRemoteIP()
+			key = this.ip(req)
 		}
 		if len(key) == 0 {
-			key = req.WAFRemoteIP()
+			key = this.ip(req)
 		}
-		value = counters.SharedCounter.IncreaseKey(types.String(ruleId)+"@WAF_CC@"+key, types.Int(period))
+		value = this.cache.IncreaseInt64(key, int64(1), time.Now().Unix()+period)
 	}
 
 	return
 }
 
-func (this *CCCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+func (this *CCCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options, ruleId)
+		return this.RequestValue(req, param, options)
 	}
 	return
 }
@@ -128,7 +146,7 @@ func (this *CCCheckpoint) Options() []OptionInterface {
 		option.Size = 8
 		option.MaxLength = 8
 		option.Validate = func(value string) (ok bool, message string) {
-			if regexp.MustCompile(`^\d+$`).MatchString(value) {
+			if regexp.MustCompile("^\\d+$").MatchString(value) {
 				ok = true
 				return
 			}
@@ -187,9 +205,43 @@ func (this *CCCheckpoint) Options() []OptionInterface {
 }
 
 func (this *CCCheckpoint) Stop() {
-
+	if this.cache != nil {
+		this.cache.Destroy()
+		this.cache = nil
+	}
 }
 
-func (this *CCCheckpoint) CacheLife() utils.CacheLife {
-	return utils.CacheDisabled
+func (this *CCCheckpoint) ip(req *requests.Request) string {
+	// X-Forwarded-For
+	forwardedFor := req.Header.Get("X-Forwarded-For")
+	if len(forwardedFor) > 0 {
+		commaIndex := strings.Index(forwardedFor, ",")
+		if commaIndex > 0 {
+			return forwardedFor[:commaIndex]
+		}
+		return forwardedFor
+	}
+
+	// Real-IP
+	{
+		realIP, ok := req.Header["X-Real-IP"]
+		if ok && len(realIP) > 0 {
+			return realIP[0]
+		}
+	}
+
+	// Real-Ip
+	{
+		realIP, ok := req.Header["X-Real-Ip"]
+		if ok && len(realIP) > 0 {
+			return realIP[0]
+		}
+	}
+
+	// Remote-Addr
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err == nil {
+		return host
+	}
+	return req.RemoteAddr
 }

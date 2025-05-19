@@ -1,53 +1,30 @@
 package ttlcache
 
 import (
-	"runtime"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"time"
 )
 
-var SharedInt64Cache = NewBigCache[int64]()
-
-// Cache TTL缓存
+// TTL缓存
 // 最大的缓存时间为30 * 86400
 // Piece数据结构：
-//
-//	    Piece1            |  Piece2 | Piece3 | ...
-//	[ Item1, Item2, ... ] |   ...
-type Cache[T any] struct {
+//      Piece1          |  Piece2 | Piece3 | ...
+//  [ Item1, Item2, ... |   ...
+// KeyMap列表数据结构
+// { timestamp1 => [key1, key2, ...] }, ...
+type Cache struct {
 	isDestroyed bool
-	pieces      []*Piece[T]
+	pieces      []*Piece
 	countPieces uint64
 	maxItems    int
 
-	maxPiecesPerGC int
-	gcPieceIndex   int
+	gcPieceIndex int
+	ticker       *utils.Ticker
 }
 
-func NewBigCache[T any]() *Cache[T] {
-	var delta = utils.SystemMemoryGB() / 2
-	if delta <= 0 {
-		delta = 1
-	}
-	return NewCache[T](NewMaxItemsOption(delta * 1_000_000))
-}
-
-func NewCache[T any](opt ...OptionInterface) *Cache[T] {
-	var countPieces = 256
-	var maxItems = 1_000_000
-
-	var totalMemory = utils.SystemMemoryGB()
-	if totalMemory < 2 {
-		// 我们限制内存过小的服务能够使用的数量
-		maxItems = 500_000
-	} else {
-		var delta = totalMemory / 4
-		if delta > 0 {
-			maxItems *= delta
-		}
-	}
-
+func NewCache(opt ...OptionInterface) *Cache {
+	countPieces := 128
+	maxItems := 1_000_000
 	for _, option := range opt {
 		if option == nil {
 			continue
@@ -64,114 +41,108 @@ func NewCache[T any](opt ...OptionInterface) *Cache[T] {
 		}
 	}
 
-	var maxPiecesPerGC = 4
-	var numCPU = runtime.NumCPU() / 2
-	if numCPU > maxPiecesPerGC {
-		maxPiecesPerGC = numCPU
-	}
-
-	var cache = &Cache[T]{
-		countPieces:    uint64(countPieces),
-		maxItems:       maxItems,
-		maxPiecesPerGC: maxPiecesPerGC,
+	cache := &Cache{
+		countPieces: uint64(countPieces),
+		maxItems:    maxItems,
 	}
 
 	for i := 0; i < countPieces; i++ {
-		cache.pieces = append(cache.pieces, NewPiece[T](maxItems/countPieces))
+		cache.pieces = append(cache.pieces, NewPiece(maxItems/countPieces))
 	}
 
-	// Add to manager
-	SharedManager.Add(cache)
+	// start timer
+	go func() {
+		cache.ticker = utils.NewTicker(5 * time.Second)
+		for cache.ticker.Next() {
+			cache.GC()
+		}
+	}()
 
 	return cache
 }
 
-func (this *Cache[T]) Write(key string, value T, expiredAt int64) (ok bool) {
+func (this *Cache) Write(key string, value interface{}, expiredAt int64) {
 	if this.isDestroyed {
 		return
 	}
 
-	var currentTimestamp = fasttime.Now().Unix()
+	currentTimestamp := time.Now().Unix()
 	if expiredAt <= currentTimestamp {
 		return
 	}
 
-	var maxExpiredAt = currentTimestamp + 30*86400
+	maxExpiredAt := currentTimestamp + 30*86400
 	if expiredAt > maxExpiredAt {
 		expiredAt = maxExpiredAt
 	}
-	var uint64Key = HashKey([]byte(key))
-	var pieceIndex = uint64Key % this.countPieces
-	return this.pieces[pieceIndex].Add(uint64Key, &Item[T]{
+	uint64Key := HashKey([]byte(key))
+	pieceIndex := uint64Key % this.countPieces
+	this.pieces[pieceIndex].Add(uint64Key, &Item{
 		Value:     value,
 		expiredAt: expiredAt,
 	})
 }
 
-func (this *Cache[T]) IncreaseInt64(key string, delta T, expiredAt int64, extend bool) T {
+func (this *Cache) IncreaseInt64(key string, delta int64, expiredAt int64) int64 {
 	if this.isDestroyed {
-		return any(0).(T)
+		return 0
 	}
 
-	var currentTimestamp = fasttime.Now().Unix()
+	currentTimestamp := time.Now().Unix()
 	if expiredAt <= currentTimestamp {
-		return any(0).(T)
+		return 0
 	}
 
-	var maxExpiredAt = currentTimestamp + 30*86400
+	maxExpiredAt := currentTimestamp + 30*86400
 	if expiredAt > maxExpiredAt {
 		expiredAt = maxExpiredAt
 	}
-	var uint64Key = HashKey([]byte(key))
-	var pieceIndex = uint64Key % this.countPieces
-	return this.pieces[pieceIndex].IncreaseInt64(uint64Key, delta, expiredAt, extend)
+	uint64Key := HashKey([]byte(key))
+	pieceIndex := uint64Key % this.countPieces
+	return this.pieces[pieceIndex].IncreaseInt64(uint64Key, delta, expiredAt)
 }
 
-func (this *Cache[T]) Read(key string) (item *Item[T]) {
-	var uint64Key = HashKey([]byte(key))
+func (this *Cache) Read(key string) (item *Item) {
+	uint64Key := HashKey([]byte(key))
 	return this.pieces[uint64Key%this.countPieces].Read(uint64Key)
 }
 
-func (this *Cache[T]) Delete(key string) {
-	var uint64Key = HashKey([]byte(key))
+func (this *Cache) readIntKey(key uint64) (value *Item) {
+	return this.pieces[key%this.countPieces].Read(key)
+}
+
+func (this *Cache) Delete(key string) {
+	uint64Key := HashKey([]byte(key))
 	this.pieces[uint64Key%this.countPieces].Delete(uint64Key)
 }
 
-func (this *Cache[T]) Count() (count int) {
+func (this *Cache) deleteIntKey(key uint64) {
+	this.pieces[key%this.countPieces].Delete(key)
+}
+
+func (this *Cache) Count() (count int) {
 	for _, piece := range this.pieces {
 		count += piece.Count()
 	}
 	return
 }
 
-func (this *Cache[T]) GC() {
-	var index = this.gcPieceIndex
-
-	for i := index; i < index+this.maxPiecesPerGC; i++ {
-		if i >= int(this.countPieces) {
-			break
-		}
-		this.pieces[i].GC()
+func (this *Cache) GC() {
+	this.pieces[this.gcPieceIndex].GC()
+	newIndex := this.gcPieceIndex + 1
+	if newIndex >= int(this.countPieces) {
+		newIndex = 0
 	}
-
-	index += this.maxPiecesPerGC
-	if index >= int(this.countPieces) {
-		index = 0
-	}
-	this.gcPieceIndex = index
+	this.gcPieceIndex = newIndex
 }
 
-func (this *Cache[T]) Clean() {
-	for _, piece := range this.pieces {
-		piece.Clean()
-	}
-}
-
-func (this *Cache[T]) Destroy() {
-	SharedManager.Remove(this)
-
+func (this *Cache) Destroy() {
 	this.isDestroyed = true
 
+	if this.ticker != nil {
+		this.ticker.Stop()
+		this.ticker = nil
+	}
 	for _, piece := range this.pieces {
 		piece.Destroy()
 	}

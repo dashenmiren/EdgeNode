@@ -1,24 +1,21 @@
-//go:build windows
 // +build windows
 
 package utils
 
 import (
 	"fmt"
-	"os/exec"
-
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/iwind/TeaGo/Tea"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
+	"os/exec"
 )
 
 // 安装服务
 func (this *ServiceManager) Install(exePath string, args []string) error {
 	m, err := mgr.Connect()
 	if err != nil {
-		return fmt.Errorf("connecting: %w please 'Run as administrator' again", err)
+		return fmt.Errorf("connecting: %s please 'Run as administrator' again", err.Error())
 	}
 	defer m.Disconnect()
 	s, err := m.OpenService(this.Name)
@@ -33,7 +30,7 @@ func (this *ServiceManager) Install(exePath string, args []string) error {
 		StartType:   windows.SERVICE_AUTO_START,
 	}, args...)
 	if err != nil {
-		return fmt.Errorf("creating: %w", err)
+		return fmt.Errorf("creating: %s", err.Error())
 	}
 	defer s.Close()
 
@@ -49,12 +46,12 @@ func (this *ServiceManager) Start() error {
 	defer m.Disconnect()
 	s, err := m.OpenService(this.Name)
 	if err != nil {
-		return fmt.Errorf("could not access service: %w", err)
+		return fmt.Errorf("could not access service: %v", err)
 	}
 	defer s.Close()
 	err = s.Start("service")
 	if err != nil {
-		return fmt.Errorf("could not start service: %w", err)
+		return fmt.Errorf("could not start service: %v", err)
 	}
 
 	return nil
@@ -64,12 +61,12 @@ func (this *ServiceManager) Start() error {
 func (this *ServiceManager) Uninstall() error {
 	m, err := mgr.Connect()
 	if err != nil {
-		return fmt.Errorf("connecting: %w please 'Run as administrator' again", err)
+		return fmt.Errorf("connecting: %s please 'Run as administrator' again", err.Error())
 	}
 	defer m.Disconnect()
 	s, err := m.OpenService(this.Name)
 	if err != nil {
-		return fmt.Errorf("open service: %w", err)
+		return fmt.Errorf("open service: %s", err.Error())
 	}
 
 	// shutdown service
@@ -81,7 +78,7 @@ func (this *ServiceManager) Uninstall() error {
 	defer s.Close()
 	err = s.Delete()
 	if err != nil {
-		return fmt.Errorf("deleting: %w", err)
+		return fmt.Errorf("deleting: %s", err.Error())
 	}
 	return nil
 }

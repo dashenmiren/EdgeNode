@@ -1,9 +1,6 @@
 package iplibrary
 
-import (
-	"github.com/dashenmiren/EdgeCommon/pkg/iputils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
-)
+import "github.com/TeaOSLab/EdgeNode/internal/utils"
 
 type IPItemType = string
 
@@ -13,51 +10,61 @@ const (
 	IPItemTypeAll  IPItemType = "all"  // 所有IP
 )
 
-// IPItem IP条目
+// IP条目
 type IPItem struct {
-	Type   string `json:"type"`
-	Id     uint64 `json:"id"`
-	IPFrom []byte `json:"ipFrom"`
-	IPTo   []byte `json:"ipTo"`
-
+	Type       string `json:"type"`
+	Id         int64  `json:"id"`
+	IPFrom     uint64 `json:"ipFrom"`
+	IPTo       uint64 `json:"ipTo"`
 	ExpiredAt  int64  `json:"expiredAt"`
 	EventLevel string `json:"eventLevel"`
 }
 
-// Contains 检查是否包含某个IP
-func (this *IPItem) Contains(ipBytes []byte) bool {
+// 检查是否包含某个IP
+func (this *IPItem) Contains(ip uint64) bool {
 	switch this.Type {
 	case IPItemTypeIPv4:
-		return this.containsIP(ipBytes)
+		return this.containsIPv4(ip)
 	case IPItemTypeIPv6:
-		return this.containsIP(ipBytes)
+		return this.containsIPv6(ip)
 	case IPItemTypeAll:
-		return this.containsAll()
+		return this.containsAll(ip)
 	default:
-		return this.containsIP(ipBytes)
+		return this.containsIPv4(ip)
 	}
 }
 
-// 检查是否包含某个
-func (this *IPItem) containsIP(ipBytes []byte) bool {
-	if IsZero(this.IPTo) {
-		if iputils.CompareBytes(this.IPFrom, ipBytes) != 0 {
+// 检查是否包含某个IPv4
+func (this *IPItem) containsIPv4(ip uint64) bool {
+	if this.IPTo == 0 {
+		if this.IPFrom != ip {
 			return false
 		}
 	} else {
-		if iputils.CompareBytes(this.IPFrom, ipBytes) > 0 || iputils.CompareBytes(this.IPTo, ipBytes) < 0 {
+		if this.IPFrom > ip || this.IPTo < ip {
 			return false
 		}
 	}
-	if this.ExpiredAt > 0 && this.ExpiredAt < fasttime.Now().Unix() {
+	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
+		return false
+	}
+	return true
+}
+
+// 检查是否包含某个IPv6
+func (this *IPItem) containsIPv6(ip uint64) bool {
+	if this.IPFrom != ip {
+		return false
+	}
+	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
 		return false
 	}
 	return true
 }
 
 // 检查是否包所有IP
-func (this *IPItem) containsAll() bool {
-	if this.ExpiredAt > 0 && this.ExpiredAt < fasttime.Now().Unix() {
+func (this *IPItem) containsAll(ip uint64) bool {
+	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
 		return false
 	}
 	return true

@@ -1,25 +1,24 @@
 package iplibrary
 
 import (
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"net/http"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 )
 
 type ActionInterface interface {
-	// Init 初始化
+	// 初始化
 	Init(config *firewallconfigs.FirewallActionConfig) error
 
-	// AddItem 添加
+	// 添加
 	AddItem(listType IPListType, item *pb.IPItem) error
 
-	// DeleteItem 删除
+	// 删除
 	DeleteItem(listType IPListType, item *pb.IPItem) error
 
-	// Close 关闭
+	// 关闭
 	Close() error
 
-	// DoHTTP 处理HTTP请求
+	// 处理HTTP请求
 	DoHTTP(req *http.Request, resp http.ResponseWriter) (goNext bool, err error)
 }

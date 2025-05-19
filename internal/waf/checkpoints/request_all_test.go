@@ -2,14 +2,13 @@ package checkpoints
 
 import (
 	"bytes"
-	"io"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/types"
+	"io/ioutil"
 	"net/http"
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"github.com/iwind/TeaGo/types"
 )
 
 func TestRequestAllCheckpoint_RequestValue(t *testing.T) {
@@ -19,23 +18,17 @@ func TestRequestAllCheckpoint_RequestValue(t *testing.T) {
 	}
 
 	checkpoint := new(RequestAllCheckpoint)
-	v, _, sysErr, userErr := checkpoint.RequestValue(requests.NewTestRequest(req), "", nil, 1)
+	v, sysErr, userErr := checkpoint.RequestValue(requests.NewRequest(req), "", nil)
 	if sysErr != nil {
 		t.Fatal(sysErr)
 	}
 	if userErr != nil {
 		t.Fatal(userErr)
 	}
-	if v != nil {
-		vv, ok := v.([][]byte)
-		if ok {
-			for _, v2 := range vv {
-				t.Log(string(v2), ":", v2)
-			}
-		}
-	}
+	t.Log(v)
+	t.Log(types.String(v))
 
-	body, err := io.ReadAll(req.Body)
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,13 +42,13 @@ func TestRequestAllCheckpoint_RequestValue_Max(t *testing.T) {
 	}
 
 	checkpoint := new(RequestBodyCheckpoint)
-	value, _, err, _ := checkpoint.RequestValue(requests.NewTestRequest(req), "", nil, 1)
+	value, err, _ := checkpoint.RequestValue(requests.NewRequest(req), "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log("value bytes:", len(types.String(value)))
 
-	body, err := io.ReadAll(req.Body)
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +65,6 @@ func BenchmarkRequestAllCheckpoint_RequestValue(b *testing.B) {
 
 	checkpoint := new(RequestAllCheckpoint)
 	for i := 0; i < b.N; i++ {
-		_, _, _, _ = checkpoint.RequestValue(requests.NewTestRequest(req), "", nil, 1)
+		_, _, _ = checkpoint.RequestValue(requests.NewRequest(req), "", nil)
 	}
 }

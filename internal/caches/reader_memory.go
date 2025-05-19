@@ -2,17 +2,10 @@ package caches
 
 import (
 	"errors"
-	"io"
-
-	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
 )
 
 type MemoryReader struct {
-	BaseReader
-
 	item *MemoryItem
-
-	offset int
 }
 
 func NewMemoryReader(item *MemoryItem) *MemoryReader {
@@ -25,10 +18,6 @@ func (this *MemoryReader) Init() error {
 
 func (this *MemoryReader) TypeName() string {
 	return "memory"
-}
-
-func (this *MemoryReader) ExpiresAt() int64 {
-	return this.item.ExpiresAt
 }
 
 func (this *MemoryReader) Status() int {
@@ -118,33 +107,6 @@ func (this *MemoryReader) ReadBody(buf []byte, callback ReaderFunc) error {
 	return nil
 }
 
-func (this *MemoryReader) Read(buf []byte) (n int, err error) {
-	bufLen := len(buf)
-	if bufLen == 0 {
-		return 0, errors.New("using empty buffer")
-	}
-
-	bodySize := len(this.item.BodyValue)
-	left := bodySize - this.offset
-	if bufLen <= left {
-		copy(buf, this.item.BodyValue[this.offset:this.offset+bufLen])
-		n = bufLen
-
-		this.offset += bufLen
-		if this.offset >= bodySize {
-			err = io.EOF
-			return
-		}
-
-		return
-	} else {
-		copy(buf, this.item.BodyValue[this.offset:])
-		n = left
-		err = io.EOF
-		return
-	}
-}
-
 func (this *MemoryReader) ReadBodyRange(buf []byte, start int64, end int64, callback ReaderFunc) error {
 	offset := start
 	bodySize := int64(len(this.item.BodyValue))
@@ -199,11 +161,6 @@ func (this *MemoryReader) ReadBodyRange(buf []byte, start int64, end int64, call
 	}
 
 	return nil
-}
-
-// ContainsRange 是否包含某些区间内容
-func (this *MemoryReader) ContainsRange(r rangeutils.Range) (r2 rangeutils.Range, ok bool) {
-	return r, true
 }
 
 func (this *MemoryReader) Close() error {

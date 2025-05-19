@@ -3,33 +3,38 @@ package nodes
 import (
 	"crypto/tls"
 	"errors"
-	"net"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/configutils"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/sslconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/sslconfigs"
+	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/types"
+	http2 "golang.org/x/net/http2"
+	"sync"
 )
 
 type BaseListener struct {
-	Group *serverconfigs.ServerAddressGroup
+	serversLocker      sync.RWMutex
+	namedServersLocker sync.RWMutex
+	namedServers       map[string]*NamedServer // 域名 => server
+
+	Group *serverconfigs.ServerGroup
 
 	countActiveConnections int64 // 当前活跃的连接数
 }
 
-// Init 初始化
+// 初始化
 func (this *BaseListener) Init() {
+	this.namedServers = map[string]*NamedServer{}
 }
 
-// Reset 清除既有配置
+// 清除既有配置
 func (this *BaseListener) Reset() {
-
+	this.namedServersLocker.Lock()
+	this.namedServers = map[string]*NamedServer{}
+	this.namedServersLocker.Unlock()
 }
 
-// CountActiveConnections 获取当前活跃连接数
-func (this *BaseListener) CountActiveConnections() int {
+// 获取当前活跃连接数
+func (this *BaseListener) CountActiveListeners() int {
 	return types.Int(this.countActiveConnections)
 }
 
@@ -37,77 +42,75 @@ func (this *BaseListener) CountActiveConnections() int {
 func (this *BaseListener) buildTLSConfig() *tls.Config {
 	return &tls.Config{
 		Certificates: nil,
-		GetConfigForClient: func(clientInfo *tls.ClientHelloInfo) (config *tls.Config, e error) {
-			// 指纹信息
-			var fingerprint = this.calculateFingerprint(clientInfo)
-			if len(fingerprint) > 0 && clientInfo.Conn != nil {
-				clientConn, ok := clientInfo.Conn.(ClientConnInterface)
-				if ok {
-					clientConn.SetFingerprint(fingerprint)
-				}
-			}
-
-			tlsPolicy, _, err := this.matchSSL(this.helloServerNames(clientInfo))
+		GetConfigForClient: func(info *tls.ClientHelloInfo) (config *tls.Config, e error) {
+			ssl, _, err := this.matchSSL(info.ServerName)
 			if err != nil {
 				return nil, err
 			}
 
-			if tlsPolicy == nil {
-				return nil, nil
+			cipherSuites := ssl.TLSCipherSuites()
+			if !ssl.CipherSuitesIsOn || len(cipherSuites) == 0 {
+				cipherSuites = nil
 			}
 
-			tlsPolicy.CheckOCSP()
+			nextProto := []string{}
+			if ssl.HTTP2Enabled {
+				nextProto = []string{http2.NextProtoTLS}
+			}
+			return &tls.Config{
+				Certificates: nil,
+				MinVersion:   ssl.TLSMinVersion(),
+				CipherSuites: cipherSuites,
+				GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
+					_, cert, err := this.matchSSL(info.ServerName)
+					if err != nil {
+						return nil, err
+					}
+					if cert == nil {
+						return nil, errors.New("[proxy]no certs found for '" + info.ServerName + "'")
+					}
+					return cert, nil
+				},
+				ClientAuth: sslconfigs.GoSSLClientAuthType(ssl.ClientAuthType),
+				ClientCAs:  ssl.CAPool(),
 
-			return tlsPolicy.TLSConfig(), nil
+				NextProtos: nextProto,
+			}, nil
 		},
-		GetCertificate: func(clientInfo *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
-			// 指纹信息
-			var fingerprint = this.calculateFingerprint(clientInfo)
-			if len(fingerprint) > 0 && clientInfo.Conn != nil {
-				clientConn, ok := clientInfo.Conn.(ClientConnInterface)
-				if ok {
-					clientConn.SetFingerprint(fingerprint)
-				}
-			}
-
-			tlsPolicy, cert, err := this.matchSSL(this.helloServerNames(clientInfo))
+		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
+			_, cert, err := this.matchSSL(info.ServerName)
 			if err != nil {
 				return nil, err
 			}
 			if cert == nil {
-				return nil, errors.New("no ssl certs found for '" + clientInfo.ServerName + "'")
+				return nil, errors.New("[proxy]no certs found for '" + info.ServerName + "'")
 			}
-
-			tlsPolicy.CheckOCSP()
-
 			return cert, nil
 		},
 	}
 }
 
 // 根据域名匹配证书
-func (this *BaseListener) matchSSL(domains []string) (*sslconfigs.SSLPolicy, *tls.Certificate, error) {
-	var group = this.Group
+func (this *BaseListener) matchSSL(domain string) (*sslconfigs.SSLPolicy, *tls.Certificate, error) {
+	this.serversLocker.RLock()
+	defer this.serversLocker.RUnlock()
+
+	group := this.Group
 
 	if group == nil {
 		return nil, nil, errors.New("no configure found")
 	}
 
-	var globalServerConfig *serverconfigs.GlobalServerConfig
-	if sharedNodeConfig != nil {
-		globalServerConfig = sharedNodeConfig.GlobalServerConfig
-	}
-
 	// 如果域名为空，则取第一个
 	// 通常域名为空是因为是直接通过IP访问的
-	if len(domains) == 0 {
-		if group.IsHTTPS() && globalServerConfig != nil && globalServerConfig.HTTPAll.MatchDomainStrictly {
+	if len(domain) == 0 {
+		if group.IsHTTPS() && sharedNodeConfig.GlobalConfig != nil && sharedNodeConfig.GlobalConfig.HTTPAll.MatchDomainStrictly {
 			return nil, nil, errors.New("no tls server name matched")
 		}
 
-		firstServer := group.FirstTLSServer()
+		firstServer := group.FirstServer()
 		if firstServer == nil {
-			return nil, nil, errors.New("no tls server available")
+			return nil, nil, errors.New("no server available")
 		}
 		sslConfig := firstServer.SSLPolicy()
 
@@ -116,162 +119,137 @@ func (this *BaseListener) matchSSL(domains []string) (*sslconfigs.SSLPolicy, *tl
 
 		}
 		return nil, nil, errors.New("no tls server name found")
-	}
-	var firstDomain = domains[0]
 
-	// 通过网站域名配置匹配
-	var server *serverconfigs.ServerConfig
-	var matchedDomain string
-	for _, domain := range domains {
-		server, _ = this.findNamedServer(domain, true)
-		if server != nil {
-			matchedDomain = domain
-			break
-		}
-	}
-	if server == nil {
-		server, _ = this.findNamedServer(firstDomain, false)
-		if server != nil {
-			matchedDomain = firstDomain
-		}
 	}
 
-	if server == nil {
-		// 找不到或者此时的服务没有配置证书，需要搜索所有的Server，通过SSL证书内容中的DNSName匹配
-		// 此功能仅为了兼容以往版本（v1.0.4），不应该作为常态启用
-		if globalServerConfig != nil && globalServerConfig.HTTPAll.MatchCertFromAllServers {
-			for _, searchingServer := range group.Servers() {
-				if searchingServer.SSLPolicy() == nil || !searchingServer.SSLPolicy().IsOn {
-					continue
-				}
-				cert, ok := searchingServer.SSLPolicy().MatchDomain(firstDomain)
-				if ok {
-					return searchingServer.SSLPolicy(), cert, nil
-				}
+	// 通过代理服务域名配置匹配
+	server, _ := this.findNamedServer(domain)
+	if server == nil || server.SSLPolicy() == nil || !server.SSLPolicy().IsOn {
+		// 搜索所有的Server，通过SSL证书内容中的DNSName匹配
+		for _, server := range group.Servers {
+			if server.SSLPolicy() == nil || !server.SSLPolicy().IsOn {
+				continue
+			}
+			cert, ok := server.SSLPolicy().MatchDomain(domain)
+			if ok {
+				return server.SSLPolicy(), cert, nil
 			}
 		}
 
-		return nil, nil, errors.New("no server found for '" + firstDomain + "'")
-	}
-	if server.SSLPolicy() == nil || !server.SSLPolicy().IsOn {
-		// 找不到或者此时的服务没有配置证书，需要搜索所有的Server，通过SSL证书内容中的DNSName匹配
-		// 此功能仅为了兼容以往版本（v1.0.4），不应该作为常态启用
-		if globalServerConfig != nil && globalServerConfig.HTTPAll.MatchCertFromAllServers {
-			for _, searchingServer := range group.Servers() {
-				if searchingServer.SSLPolicy() == nil || !searchingServer.SSLPolicy().IsOn {
-					continue
-				}
-				cert, ok := searchingServer.SSLPolicy().MatchDomain(matchedDomain)
-				if ok {
-					return searchingServer.SSLPolicy(), cert, nil
-				}
-			}
-		}
-
-		return nil, nil, errors.New("no cert found for '" + matchedDomain + "'")
+		return nil, nil, errors.New("[proxy]no server found for '" + domain + "'")
 	}
 
 	// 证书是否匹配
-	var sslConfig = server.SSLPolicy()
-	cert, ok := sslConfig.MatchDomain(matchedDomain)
+	sslConfig := server.SSLPolicy()
+	cert, ok := sslConfig.MatchDomain(domain)
 	if ok {
 		return sslConfig, cert, nil
-	}
-
-	if len(sslConfig.Certs) == 0 {
-		remotelogs.ServerError(server.Id, "BASE_LISTENER", "no ssl certs found for '"+matchedDomain+"', server id: "+types.String(server.Id), "", nil)
 	}
 
 	return sslConfig, sslConfig.FirstCert(), nil
 }
 
 // 根据域名来查找匹配的域名
-func (this *BaseListener) findNamedServer(name string, exactly bool) (serverConfig *serverconfigs.ServerConfig, serverName string) {
+func (this *BaseListener) findNamedServer(name string) (serverConfig *serverconfigs.ServerConfig, serverName string) {
 	serverConfig, serverName = this.findNamedServerMatched(name)
 	if serverConfig != nil {
 		return
 	}
 
-	var globalServerConfig = sharedNodeConfig.GlobalServerConfig
-	var matchDomainStrictly = globalServerConfig != nil && globalServerConfig.HTTPAll.MatchDomainStrictly
+	matchDomainStrictly := sharedNodeConfig.GlobalConfig != nil && sharedNodeConfig.GlobalConfig.HTTPAll.MatchDomainStrictly
 
-	if globalServerConfig != nil &&
-		len(globalServerConfig.HTTPAll.DefaultDomain) > 0 &&
-		(!matchDomainStrictly || configutils.MatchDomains(globalServerConfig.HTTPAll.AllowMismatchDomains, name) || (globalServerConfig.HTTPAll.AllowNodeIP && utils.IsWildIP(name))) {
-		if globalServerConfig.HTTPAll.AllowNodeIP &&
-			globalServerConfig.HTTPAll.NodeIPShowPage &&
-			utils.IsWildIP(name) {
+	if sharedNodeConfig.GlobalConfig != nil &&
+		len(sharedNodeConfig.GlobalConfig.HTTPAll.DefaultDomain) > 0 &&
+		(!matchDomainStrictly || lists.ContainsString(sharedNodeConfig.GlobalConfig.HTTPAll.AllowMismatchDomains, name)) {
+		defaultDomain := sharedNodeConfig.GlobalConfig.HTTPAll.DefaultDomain
+		serverConfig, serverName = this.findNamedServerMatched(defaultDomain)
+		if serverConfig != nil {
 			return
-		} else {
-			var defaultDomain = globalServerConfig.HTTPAll.DefaultDomain
-			serverConfig, serverName = this.findNamedServerMatched(defaultDomain)
-			if serverConfig != nil {
-				return
-			}
 		}
 	}
 
-	if matchDomainStrictly && !configutils.MatchDomains(globalServerConfig.HTTPAll.AllowMismatchDomains, name) && (!globalServerConfig.HTTPAll.AllowNodeIP || (!utils.IsWildIP(name) || globalServerConfig.HTTPAll.NodeIPShowPage)) {
+	if matchDomainStrictly && !lists.ContainsString(sharedNodeConfig.GlobalConfig.HTTPAll.AllowMismatchDomains, name) {
 		return
 	}
 
-	if !exactly {
-		// 如果没有找到，则匹配到第一个
-		var group = this.Group
-		var currentServers = group.Servers()
-		var countServers = len(currentServers)
-		if countServers == 0 {
-			return nil, ""
-		}
-		return currentServers[0], name
-	}
+	// 如果没有找到，则匹配到第一个
+	this.serversLocker.RLock()
+	defer this.serversLocker.RUnlock()
 
-	return
+	group := this.Group
+	currentServers := group.Servers
+	countServers := len(currentServers)
+	if countServers == 0 {
+		return nil, ""
+	}
+	return currentServers[0], name
 }
 
 // 严格查找域名
 func (this *BaseListener) findNamedServerMatched(name string) (serverConfig *serverconfigs.ServerConfig, serverName string) {
-	var group = this.Group
+	group := this.Group
 	if group == nil {
 		return nil, ""
 	}
 
-	server := group.MatchServerName(name)
-	if server != nil {
-		return server, name
+	// 读取缓存
+	this.namedServersLocker.RLock()
+	namedServer, found := this.namedServers[name]
+	if found {
+		this.namedServersLocker.RUnlock()
+		return namedServer.Server, namedServer.Name
+	}
+	this.namedServersLocker.RUnlock()
+
+	this.serversLocker.RLock()
+	defer this.serversLocker.RUnlock()
+
+	currentServers := group.Servers
+	countServers := len(currentServers)
+	if countServers == 0 {
+		return nil, ""
 	}
 
+	// 只记录N个记录，防止内存耗尽
+	maxNamedServers := 100_0000
+
 	// 是否严格匹配域名
-	var matchDomainStrictly = sharedNodeConfig.GlobalServerConfig != nil && sharedNodeConfig.GlobalServerConfig.HTTPAll.MatchDomainStrictly
+	matchDomainStrictly := sharedNodeConfig.GlobalConfig != nil && sharedNodeConfig.GlobalConfig.HTTPAll.MatchDomainStrictly
 
 	// 如果只有一个server，则默认为这个
-	var currentServers = group.Servers()
-	var countServers = len(currentServers)
 	if countServers == 1 && !matchDomainStrictly {
 		return currentServers[0], name
 	}
 
-	return nil, name
-}
-
-// 从Hello信息中获取服务名称
-func (this *BaseListener) helloServerNames(clientInfo *tls.ClientHelloInfo) (serverNames []string) {
-	if len(clientInfo.ServerName) != 0 {
-		serverNames = append(serverNames, clientInfo.ServerName)
-		return
-	}
-
-	if clientInfo.Conn != nil {
-		var localAddr = clientInfo.Conn.LocalAddr()
-		if localAddr != nil {
-			tcpAddr, ok := localAddr.(*net.TCPAddr)
-			if ok {
-				serverNames = append(serverNames, tcpAddr.IP.String())
+	// 精确查找
+	for _, server := range currentServers {
+		if server.MatchNameStrictly(name) {
+			this.namedServersLocker.Lock()
+			if len(this.namedServers) < maxNamedServers {
+				this.namedServers[name] = &NamedServer{
+					Name:   name,
+					Server: server,
+				}
 			}
+			this.namedServersLocker.Unlock()
+			return server, name
 		}
 	}
 
-	serverNames = append(serverNames, sharedNodeConfig.IPAddresses...)
+	// 模糊查找
+	for _, server := range currentServers {
+		if matched := server.MatchName(name); matched {
+			this.namedServersLocker.Lock()
+			if len(this.namedServers) < maxNamedServers {
+				this.namedServers[name] = &NamedServer{
+					Name:   name,
+					Server: server,
+				}
+			}
+			this.namedServersLocker.Unlock()
+			return server, name
+		}
+	}
 
-	return
+	return nil, name
 }

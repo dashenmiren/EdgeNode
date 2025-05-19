@@ -2,55 +2,41 @@ package waf
 
 import (
 	"errors"
-	"fmt"
-	"net/http"
-	"os"
-	"reflect"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/checkpoints"
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
+	"github.com/iwind/TeaGo/utils/string"
 	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"net/http"
+	"reflect"
 )
 
 type WAF struct {
-	Id               int64                           `yaml:"id" json:"id"`
-	IsOn             bool                            `yaml:"isOn" json:"isOn"`
-	Name             string                          `yaml:"name" json:"name"`
-	Inbound          []*RuleGroup                    `yaml:"inbound" json:"inbound"`
-	Outbound         []*RuleGroup                    `yaml:"outbound" json:"outbound"`
-	CreatedVersion   string                          `yaml:"createdVersion" json:"createdVersion"`
-	Mode             firewallconfigs.FirewallMode    `yaml:"mode" json:"mode"`
-	UseLocalFirewall bool                            `yaml:"useLocalFirewall" json:"useLocalFirewall"`
-	SYNFlood         *firewallconfigs.SYNFloodConfig `yaml:"synFlood" json:"synFlood"`
+	Id             string       `yaml:"id" json:"id"`
+	IsOn           bool         `yaml:"isOn" json:"isOn"`
+	Name           string       `yaml:"name" json:"name"`
+	Inbound        []*RuleGroup `yaml:"inbound" json:"inbound"`
+	Outbound       []*RuleGroup `yaml:"outbound" json:"outbound"`
+	CreatedVersion string       `yaml:"createdVersion" json:"createdVersion"`
 
-	// ip lists
+	ActionBlock *BlockAction `yaml:"actionBlock" json:"actionBlock"` // action block config
 
-	AllowListId int64 `yaml:"allowListId" json:"allowListId"`
-	DenyListId  int64 `yaml:"denyListId" json:"denyListId"`
-	GreyListId  int64 `yaml:"greyListId" json:"greyListId"`
-
-	DefaultBlockAction    *BlockAction
-	DefaultPageAction     *PageAction
-	DefaultCaptchaAction  *CaptchaAction
-	DefaultJSCookieAction *JSCookieAction
-	DefaultPost307Action  *Post307Action
-	DefaultGet302Action   *Get302Action
+	IPTables []*IPTable `yaml:"ipTables" json:"ipTables"` // IP table list
 
 	hasInboundRules  bool
 	hasOutboundRules bool
+	onActionCallback func(action ActionString) (goNext bool)
 
 	checkpointsMap map[string]checkpoints.CheckpointInterface // prefix => checkpoint
-	actionMap      map[int64]ActionInterface                  // actionId => ActionInterface
 }
 
 func NewWAF() *WAF {
 	return &WAF{
-		IsOn:      true,
-		actionMap: map[int64]ActionInterface{},
+		Id:   stringutil.Rand(16),
+		IsOn: true,
 	}
 }
 
@@ -79,18 +65,14 @@ func NewWAFFromFile(path string) (waf *WAF, err error) {
 	return waf, nil
 }
 
-func (this *WAF) Init() (resultErrors []error) {
+func (this *WAF) Init() error {
 	// checkpoint
 	this.checkpointsMap = map[string]checkpoints.CheckpointInterface{}
 	for _, def := range checkpoints.AllCheckpoints {
 		instance := reflect.New(reflect.Indirect(reflect.ValueOf(def.Instance)).Type()).Interface().(checkpoints.CheckpointInterface)
 		instance.Init()
-		instance.SetPriority(def.Priority)
 		this.checkpointsMap[def.Prefix] = instance
 	}
-
-	// action map
-	this.actionMap = map[int64]ActionInterface{}
 
 	// rules
 	this.hasInboundRules = len(this.Inbound) > 0
@@ -105,10 +87,9 @@ func (this *WAF) Init() (resultErrors []error) {
 				}
 			}
 
-			err := group.Init(this)
+			err := group.Init()
 			if err != nil {
-				// 这里我们不阻止其他规则正常加入
-				resultErrors = append(resultErrors, fmt.Errorf("init group '%d' failed: %w", group.Id, err))
+				return err
 			}
 		}
 	}
@@ -122,10 +103,9 @@ func (this *WAF) Init() (resultErrors []error) {
 				}
 			}
 
-			err := group.Init(this)
+			err := group.Init()
 			if err != nil {
-				// 这里我们不阻止其他规则正常加入
-				resultErrors = append(resultErrors, err)
+				return err
 			}
 		}
 	}
@@ -141,7 +121,11 @@ func (this *WAF) AddRuleGroup(ruleGroup *RuleGroup) {
 	}
 }
 
-func (this *WAF) RemoveRuleGroup(ruleGroupId int64) {
+func (this *WAF) RemoveRuleGroup(ruleGroupId string) {
+	if len(ruleGroupId) == 0 {
+		return
+	}
+
 	{
 		result := []*RuleGroup{}
 		for _, group := range this.Inbound {
@@ -165,7 +149,10 @@ func (this *WAF) RemoveRuleGroup(ruleGroupId int64) {
 	}
 }
 
-func (this *WAF) FindRuleGroup(ruleGroupId int64) *RuleGroup {
+func (this *WAF) FindRuleGroup(ruleGroupId string) *RuleGroup {
+	if len(ruleGroupId) == 0 {
+		return nil
+	}
 	for _, group := range this.Inbound {
 		if group.Id == ruleGroupId {
 			return group
@@ -254,115 +241,85 @@ func (this *WAF) MoveOutboundRuleGroup(fromIndex int, toIndex int) {
 	this.Outbound = result
 }
 
-func (this *WAF) MatchRequest(req requests.Request, writer http.ResponseWriter, defaultCaptchaType firewallconfigs.ServerCaptchaType) (result MatchResult, err error) {
+func (this *WAF) MatchRequest(rawReq *http.Request, writer http.ResponseWriter) (goNext bool, group *RuleGroup, set *RuleSet, err error) {
 	if !this.hasInboundRules {
-		return MatchResult{
-			GoNext: true,
-		}, nil
+		return true, nil, nil, nil
 	}
+
+	req := requests.NewRequest(rawReq)
 
 	// validate captcha
-	var rawPath = req.WAFRaw().URL.Path
-	if rawPath == CaptchaPath {
-		req.DisableAccessLog()
-		req.DisableStat()
-		captchaValidator.Run(req, writer, defaultCaptchaType)
-		return
-	}
-
-	// Get 302验证
-	if rawPath == Get302Path {
-		req.DisableAccessLog()
-		req.DisableStat()
-		get302Validator.Run(req, writer)
+	if rawReq.URL.Path == "/WAFCAPTCHA" {
+		captchaValidator.Run(req, writer)
 		return
 	}
 
 	// match rules
-	var hasRequestBody bool
 	for _, group := range this.Inbound {
 		if !group.IsOn {
 			continue
 		}
-		b, hasCheckedRequestBody, set, matchErr := group.MatchRequest(req)
-		if hasCheckedRequestBody {
-			hasRequestBody = true
-		}
-		if matchErr != nil {
-			return MatchResult{
-				GoNext:         true,
-				HasRequestBody: hasRequestBody,
-			}, matchErr
+		b, set, err := group.MatchRequest(req)
+		if err != nil {
+			return true, nil, nil, err
 		}
 		if b {
-			var performResult = set.PerformActions(this, group, req, writer)
-			if !performResult.GoNextSet {
-				if performResult.GoNextGroup {
-					continue
+			if this.onActionCallback == nil {
+				if set.Action == ActionBlock && this.ActionBlock != nil {
+					return this.ActionBlock.Perform(this, req, writer), group, set, nil
+				} else {
+					actionObject := FindActionInstance(set.Action, set.ActionOptions)
+					if actionObject == nil {
+						return true, group, set, errors.New("no action called '" + set.Action + "'")
+					}
+					goNext := actionObject.Perform(this, req, writer)
+					return goNext, group, set, nil
 				}
-				return MatchResult{
-					GoNext:         performResult.ContinueRequest,
-					HasRequestBody: hasRequestBody,
-					Group:          group,
-					Set:            set,
-					IsAllowed:      performResult.IsAllowed,
-					AllowScope:     performResult.AllowScope,
-				}, nil
+			} else {
+				goNext = this.onActionCallback(set.Action)
 			}
+			return goNext, group, set, nil
 		}
 	}
-	return MatchResult{
-		GoNext:         true,
-		HasRequestBody: hasRequestBody,
-	}, nil
+	return true, nil, nil, nil
 }
 
-func (this *WAF) MatchResponse(req requests.Request, rawResp *http.Response, writer http.ResponseWriter) (result MatchResult, err error) {
+func (this *WAF) MatchResponse(rawReq *http.Request, rawResp *http.Response, writer http.ResponseWriter) (goNext bool, group *RuleGroup, set *RuleSet, err error) {
 	if !this.hasOutboundRules {
-		return MatchResult{
-			GoNext: true,
-		}, nil
+		return true, nil, nil, nil
 	}
-	var hasRequestBody bool
-	var resp = requests.NewResponse(rawResp)
+	req := requests.NewRequest(rawReq)
+	resp := requests.NewResponse(rawResp)
 	for _, group := range this.Outbound {
 		if !group.IsOn {
 			continue
 		}
-		b, hasCheckedRequestBody, set, matchErr := group.MatchResponse(req, resp)
-		if hasCheckedRequestBody {
-			hasRequestBody = true
-		}
-		if matchErr != nil {
-			return MatchResult{
-				GoNext:         true,
-				HasRequestBody: hasRequestBody,
-			}, matchErr
+		b, set, err := group.MatchResponse(req, resp)
+		if err != nil {
+			return true, nil, nil, err
 		}
 		if b {
-			var performResult = set.PerformActions(this, group, req, writer)
-			if !performResult.GoNextSet {
-				if performResult.GoNextGroup {
-					continue
+			if this.onActionCallback == nil {
+				if set.Action == ActionBlock && this.ActionBlock != nil {
+					return this.ActionBlock.Perform(this, req, writer), group, set, nil
+				} else {
+					actionObject := FindActionInstance(set.Action, set.ActionOptions)
+					if actionObject == nil {
+						return true, group, set, errors.New("no action called '" + set.Action + "'")
+					}
+					goNext := actionObject.Perform(this, req, writer)
+					return goNext, group, set, nil
 				}
-				return MatchResult{
-					GoNext:         performResult.ContinueRequest,
-					HasRequestBody: hasRequestBody,
-					Group:          group,
-					Set:            set,
-					IsAllowed:      performResult.IsAllowed,
-					AllowScope:     performResult.AllowScope,
-				}, nil
+			} else {
+				goNext = this.onActionCallback(set.Action)
 			}
+			return goNext, group, set, nil
 		}
 	}
-	return MatchResult{
-		GoNext:         true,
-		HasRequestBody: hasRequestBody,
-	}, nil
+	return true, nil, nil, nil
 }
 
-// Save to file path
+// save to file path
 func (this *WAF) Save(path string) error {
 	if len(path) == 0 {
 		return errors.New("path should not be empty")
@@ -374,7 +331,7 @@ func (this *WAF) Save(path string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return ioutil.WriteFile(path, data, 0644)
 }
 
 func (this *WAF) ContainsGroupCode(code string) bool {
@@ -394,16 +351,8 @@ func (this *WAF) ContainsGroupCode(code string) bool {
 	return false
 }
 
-func (this *WAF) AddAction(action ActionInterface) {
-	this.actionMap[action.ActionId()] = action
-}
-
-func (this *WAF) FindAction(actionId int64) ActionInterface {
-	return this.actionMap[actionId]
-}
-
 func (this *WAF) Copy() *WAF {
-	var waf = &WAF{
+	waf := &WAF{
 		Id:       this.Id,
 		IsOn:     this.IsOn,
 		Name:     this.Name,
@@ -429,6 +378,10 @@ func (this *WAF) CountOutboundRuleSets() int {
 	return count
 }
 
+func (this *WAF) OnAction(onActionCallback func(action ActionString) (goNext bool)) {
+	this.onActionCallback = onActionCallback
+}
+
 func (this *WAF) FindCheckpointInstance(prefix string) checkpoints.CheckpointInterface {
 	instance, ok := this.checkpointsMap[prefix]
 	if ok {
@@ -437,22 +390,22 @@ func (this *WAF) FindCheckpointInstance(prefix string) checkpoints.CheckpointInt
 	return nil
 }
 
-// Start
+// start
 func (this *WAF) Start() {
 	for _, checkpoint := range this.checkpointsMap {
 		checkpoint.Start()
 	}
 }
 
-// Stop call stop() when the waf was deleted
+// call stop() when the waf was deleted
 func (this *WAF) Stop() {
 	for _, checkpoint := range this.checkpointsMap {
 		checkpoint.Stop()
 	}
 }
 
-// MergeTemplate merge with template
-func (this *WAF) MergeTemplate() (changedItems []string, err error) {
+// merge with template
+func (this *WAF) MergeTemplate() (changedItems []string) {
 	changedItems = []string{}
 
 	// compare versions
@@ -461,21 +414,14 @@ func (this *WAF) MergeTemplate() (changedItems []string, err error) {
 	}
 	this.CreatedVersion = teaconst.Version
 
-	template, err := Template()
-	if err != nil {
-		return nil, err
-	}
+	template := Template()
 	groups := []*RuleGroup{}
 	groups = append(groups, template.Inbound...)
 	groups = append(groups, template.Outbound...)
-
-	var newGroupId int64 = 1_000_000_000
-
 	for _, group := range groups {
 		oldGroup := this.FindRuleGroupWithCode(group.Code)
 		if oldGroup == nil {
-			newGroupId++
-			group.Id = newGroupId
+			group.Id = stringutil.Rand(16)
 			this.AddRuleGroup(group)
 			changedItems = append(changedItems, "+group "+group.Name)
 			continue

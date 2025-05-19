@@ -1,10 +1,9 @@
 package checkpoints
 
 import (
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestResponseStatusCheckpoint_ResponseValue(t *testing.T) {
@@ -12,5 +11,5 @@ func TestResponseStatusCheckpoint_ResponseValue(t *testing.T) {
 	resp.StatusCode = 200
 
 	checkpoint := new(ResponseStatusCheckpoint)
-	t.Log(checkpoint.ResponseValue(nil, resp, "", nil, 1))
+	t.Log(checkpoint.ResponseValue(nil, resp, "", nil))
 }

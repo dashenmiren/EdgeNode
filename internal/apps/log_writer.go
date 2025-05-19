@@ -1,112 +1,51 @@
 package apps
 
 import (
-	"log"
-	"os"
-	"runtime"
-	"strconv"
-	"strings"
-
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/dashenmiren/EdgeNode/internal/utils/goman"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
-	timeutil "github.com/iwind/TeaGo/utils/time"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/utils/time"
+	"log"
 )
 
 type LogWriter struct {
-	fp *os.File
-	c  chan string
+	fileAppender *files.Appender
 }
 
 func (this *LogWriter) Init() {
 	// 创建目录
-	var dir = files.NewFile(Tea.LogDir())
+	dir := files.NewFile(Tea.LogDir())
 	if !dir.Exists() {
 		err := dir.Mkdir()
 		if err != nil {
-			log.Println("[LOG]create log dir failed: " + err.Error())
+			log.Println("[error]" + err.Error())
 		}
 	}
 
+	logFile := files.NewFile(Tea.LogFile("run.log"))
+
 	// 打开要写入的日志文件
-	var logPath = Tea.LogFile("run.log")
-	fp, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	appender, err := logFile.Appender()
 	if err != nil {
-		log.Println("[LOG]open log file failed: " + err.Error())
+		logs.Error(err)
 	} else {
-		this.fp = fp
-	}
-
-	this.c = make(chan string, 1024)
-
-	// 异步写入文件
-	var maxFileSize int64 = 128 << 20 // 文件最大尺寸，超出此尺寸则清空
-	if fp != nil {
-		goman.New(func() {
-			var totalSize int64 = 0
-			stat, err := fp.Stat()
-			if err == nil {
-				totalSize = stat.Size()
-			}
-
-			for message := range this.c {
-				totalSize += int64(len(message))
-				_, err := fp.WriteString(timeutil.Format("Y/m/d H:i:s ") + message + "\n")
-				if err != nil {
-					log.Println("[LOG]write log failed: " + err.Error())
-				} else {
-					// 如果太大则Truncate
-					if totalSize > maxFileSize {
-						_ = fp.Truncate(0)
-						totalSize = 0
-					}
-				}
-			}
-		})
+		this.fileAppender = appender
 	}
 }
 
 func (this *LogWriter) Write(message string) {
-	backgroundEnv, _ := os.LookupEnv("EdgeBackground")
-	if backgroundEnv != "on" {
-		// 文件和行号
-		var file string
-		var line int
-		if Tea.IsTesting() {
-			var callDepth = 3
-			var ok bool
-			_, file, line, ok = runtime.Caller(callDepth)
-			if ok {
-				file = utils.RemoveWorkspace(this.packagePath(file))
-			}
-		}
+	log.Println(message)
 
-		if len(file) > 0 {
-			log.Println(message + " (" + file + ":" + strconv.Itoa(line) + ")")
-		} else {
-			log.Println(message)
+	if this.fileAppender != nil {
+		_, err := this.fileAppender.AppendString(timeutil.Format("Y/m/d H:i:s ") + message + "\n")
+		if err != nil {
+			log.Println("[error]" + err.Error())
 		}
-	}
-
-	select {
-	case this.c <- message:
-	default:
 	}
 }
 
 func (this *LogWriter) Close() {
-	if this.fp != nil {
-		_ = this.fp.Close()
+	if this.fileAppender != nil {
+		_ = this.fileAppender.Close()
 	}
-
-	close(this.c)
-}
-
-func (this *LogWriter) packagePath(path string) string {
-	var pieces = strings.Split(path, "/")
-	if len(pieces) >= 2 {
-		return strings.Join(pieces[len(pieces)-2:], "/")
-	}
-	return path
 }

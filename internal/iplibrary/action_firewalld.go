@@ -1,27 +1,25 @@
 package iplibrary
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"os/exec"
 	"runtime"
 	"time"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 )
 
-// FirewalldAction Firewalld动作管理
+// Firewalld动作管理
 // 常用命令：
-//   - 查询列表： firewall-cmd --list-all
-//   - 添加IP：firewall-cmd --add-rich-rule="rule family='ipv4' source address='192.168.2.32' reject" --timeout=30s
-//   - 删除IP：firewall-cmd --remove-rich-rule="rule family='ipv4' source address='192.168.2.32' reject" --timeout=30s
+//  - 查询列表： firewall-cmd --list-all
+//  - 添加IP：firewall-cmd --add-rich-rule="rule family='ipv4' source address='192.168.2.32' reject" --timeout=30s
+//  - 删除IP：firewall-cmd --remove-rich-rule="rule family='ipv4' source address='192.168.2.32' reject" --timeout=30s
 type FirewalldAction struct {
 	BaseAction
 
 	config *firewallconfigs.FirewallActionFirewalldConfig
-
-	firewalldNotFound bool
 }
 
 func NewFirewalldAction() *FirewalldAction {
@@ -82,12 +80,8 @@ func (this *FirewalldAction) runActionSingleIP(action string, listType IPListTyp
 	path := this.config.Path
 	var err error
 	if len(path) == 0 {
-		path, err = executils.LookPath("firewall-cmd")
+		path, err = exec.LookPath("firewall-cmd")
 		if err != nil {
-			if this.firewalldNotFound {
-				return nil
-			}
-			this.firewalldNotFound = true
 			return err
 		}
 	}
@@ -132,23 +126,22 @@ func (this *FirewalldAction) runActionSingleIP(action string, listType IPListTyp
 	}
 
 	args := []string{opt}
-	if action == "addItem" {
-		if item.ExpiredAt > timestamp {
-			args = append(args, "--timeout="+fmt.Sprintf("%d", item.ExpiredAt-timestamp)+"s")
-		} else {
-			// TODO 思考是否需要permanent，不然--reload之后会丢失
-		}
+	if item.ExpiredAt > timestamp {
+		args = append(args, "--timeout="+fmt.Sprintf("%d", item.ExpiredAt-timestamp)+"s")
+	} else {
+		// TODO 思考是否需要permanent，不然--reload之后会丢失
 	}
 
 	if runtime.GOOS == "darwin" {
 		// MAC OS直接返回
 		return nil
 	}
-	cmd := executils.NewTimeoutCmd(30*time.Second, path, args...)
-	cmd.WithStderr()
+	cmd := exec.Command(path, args...)
+	stderr := bytes.NewBuffer([]byte{})
+	cmd.Stderr = stderr
 	err = cmd.Run()
 	if err != nil {
-		return fmt.Errorf("%w, output: %s", err, cmd.Stderr())
+		return errors.New(err.Error() + ", output: " + string(stderr.Bytes()))
 	}
 	return nil
 }

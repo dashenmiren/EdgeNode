@@ -1,14 +1,13 @@
 package iplibrary
 
 import (
-	"testing"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/iwind/TeaGo/maps"
+	"testing"
 )
 
 func TestActionManager_UpdateActions(t *testing.T) {
-	var manager = NewActionManager()
+	manager := NewActionManager()
 	manager.UpdateActions([]*firewallconfigs.FirewallActionConfig{
 		{
 			Id:   1,

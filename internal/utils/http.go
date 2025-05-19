@@ -2,7 +2,7 @@ package utils
 
 import (
 	"crypto/tls"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"sync"
@@ -13,17 +13,14 @@ import (
 var timeoutClientMap = map[time.Duration]*http.Client{} // timeout => Client
 var timeoutClientLocker = sync.Mutex{}
 
-// DumpResponse 导出响应
+// 导出响应
 func DumpResponse(resp *http.Response) (header []byte, body []byte, err error) {
 	header, err = httputil.DumpResponse(resp, false)
-	if err != nil {
-		return
-	}
-	body, err = io.ReadAll(resp.Body)
+	body, err = ioutil.ReadAll(resp.Body)
 	return
 }
 
-// NewHTTPClient 获取一个新的Client
+// 获取一个新的Client
 func NewHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
@@ -33,7 +30,7 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 			MaxConnsPerHost:       32,
 			IdleConnTimeout:       2 * time.Minute,
 			ExpectContinueTimeout: 1 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
+			TLSHandshakeTimeout:   0,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
@@ -41,7 +38,7 @@ func NewHTTPClient(timeout time.Duration) *http.Client {
 	}
 }
 
-// SharedHttpClient 获取一个公用的Client
+// 获取一个公用的Client
 func SharedHttpClient(timeout time.Duration) *http.Client {
 	timeoutClientLocker.Lock()
 	defer timeoutClientLocker.Unlock()

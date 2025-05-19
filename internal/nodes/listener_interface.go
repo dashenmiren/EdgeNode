@@ -1,6 +1,6 @@
 package nodes
 
-import "github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+import "github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
 
 // ListenerInterface 各协议监听器的接口
 type ListenerInterface interface {
@@ -14,8 +14,8 @@ type ListenerInterface interface {
 	Close() error
 
 	// Reload 重载配置
-	Reload(serverGroup *serverconfigs.ServerAddressGroup)
+	Reload(serverGroup *serverconfigs.ServerGroup)
 
-	// CountActiveConnections 获取当前活跃的连接数
-	CountActiveConnections() int
+	// CountActiveListeners 获取当前活跃的连接数
+	CountActiveListeners() int
 }

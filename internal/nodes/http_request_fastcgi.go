@@ -1,25 +1,23 @@
-// Copyright 2021 GoEdge goedge.cdn@gmail.com. All rights reserved.
+// Copyright 2021 Liuxiangchao iwind.liu@gmail.com. All rights reserved.
 
 package nodes
 
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
-	"path/filepath"
-	"strings"
-
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs"
+	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	"github.com/iwind/gofcgi/pkg/fcgi"
+	"io"
+	"net"
+	"net/url"
+	"path/filepath"
+	"strings"
 )
 
 func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
@@ -42,7 +40,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 	}
 
 	if !env.Has("REMOTE_ADDR") {
-		env["REMOTE_ADDR"] = this.requestRemoteAddr(true)
+		env["REMOTE_ADDR"] = this.requestRemoteAddr()
 	}
 	if !env.Has("QUERY_STRING") {
 		u, err := url.ParseRequestURI(this.uri)
@@ -53,13 +51,13 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 		}
 	}
 	if !env.Has("SERVER_NAME") {
-		env["SERVER_NAME"] = this.ReqHost
+		env["SERVER_NAME"] = this.Host
 	}
 	if !env.Has("REQUEST_URI") {
 		env["REQUEST_URI"] = this.uri
 	}
 	if !env.Has("HOST") {
-		env["HOST"] = this.ReqHost
+		env["HOST"] = this.Host
 	}
 
 	if len(this.ServerAddr) > 0 {
@@ -74,16 +72,6 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 		}
 	}
 
-	// 设置为持久化连接
-	var requestConn = this.RawReq.Context().Value(HTTPConnContextKey)
-	if requestConn == nil {
-		return
-	}
-	requestClientConn, ok := requestConn.(ClientConnInterface)
-	if ok {
-		requestClientConn.SetIsPersistent(true)
-	}
-
 	// 连接池配置
 	poolSize := fastcgi.PoolSize
 	if poolSize <= 0 {
@@ -92,7 +80,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	client, err := fcgi.SharedPool(fastcgi.Network(), fastcgi.RealAddress(), uint(poolSize)).Client()
 	if err != nil {
-		this.write50x(err, http.StatusInternalServerError, "Failed to create Fastcgi pool", "Fastcgi池生成失败", false)
+		this.write500(err)
 		return
 	}
 
@@ -112,7 +100,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	// 处理SCRIPT_FILENAME
 	scriptPath := env.GetString("SCRIPT_FILENAME")
-	if len(scriptPath) > 0 && !strings.Contains(scriptPath, "/") && !strings.Contains(scriptPath, "\\") {
+	if len(scriptPath) > 0 && (strings.Index(scriptPath, "/") < 0 && strings.Index(scriptPath, "\\") < 0) {
 		env["SCRIPT_FILENAME"] = env.GetString("DOCUMENT_ROOT") + Tea.DS + scriptPath
 	}
 	scriptFilename := filepath.Base(this.RawReq.URL.Path)
@@ -160,7 +148,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	host, found := params["HTTP_HOST"]
 	if !found || len(host) == 0 {
-		params["HTTP_HOST"] = this.ReqHost
+		params["HTTP_HOST"] = this.Host
 	}
 
 	fcgiReq := fcgi.NewRequest()
@@ -170,13 +158,13 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	resp, stderr, err := client.Call(fcgiReq)
 	if err != nil {
-		this.write50x(err, http.StatusInternalServerError, "Failed to read Fastcgi", "读取Fastcgi失败", false)
+		this.write500(err)
 		return
 	}
 
 	if len(stderr) > 0 {
 		err := errors.New("Fastcgi Error: " + strings.TrimSpace(string(stderr)) + " script: " + maps.NewMap(params).GetString("SCRIPT_FILENAME"))
-		this.write50x(err, http.StatusInternalServerError, "Failed to read Fastcgi", "读取Fastcgi失败", false)
+		this.write500(err)
 		return
 	}
 
@@ -198,18 +186,18 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	// 响应Header
 	this.writer.AddHeaders(resp.Header)
-	this.ProcessResponseHeaders(this.writer.Header(), resp.StatusCode)
+	this.processResponseHeaders(resp.StatusCode)
 
 	// 准备
-	this.writer.Prepare(resp, resp.ContentLength, resp.StatusCode, true)
+	this.writer.Prepare(resp.ContentLength, resp.StatusCode)
 
 	// 设置响应代码
 	this.writer.WriteHeader(resp.StatusCode)
 
 	// 输出到客户端
-	var pool = this.bytePool(resp.ContentLength)
-	var buf = pool.Get()
-	_, err = io.CopyBuffer(this.writer, resp.Body, buf.Bytes)
+	pool := this.bytePool(resp.ContentLength)
+	buf := pool.Get()
+	_, err = io.CopyBuffer(this.writer, resp.Body, buf)
 	pool.Put(buf)
 
 	closeErr := resp.Body.Close()

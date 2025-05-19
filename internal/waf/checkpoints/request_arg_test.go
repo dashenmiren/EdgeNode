@@ -1,10 +1,9 @@
 package checkpoints
 
 import (
+	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
-
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestArgParam_RequestValue(t *testing.T) {
@@ -13,10 +12,10 @@ func TestArgParam_RequestValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewTestRequest(rawReq)
+	req := requests.NewRequest(rawReq)
 
 	checkpoint := new(RequestArgCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "name", nil, 1))
-	t.Log(checkpoint.ResponseValue(req, nil, "name", nil, 1))
-	t.Log(checkpoint.RequestValue(req, "name2", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "name", nil))
+	t.Log(checkpoint.ResponseValue(req, nil, "name", nil))
+	t.Log(checkpoint.RequestValue(req, "name2", nil))
 }
