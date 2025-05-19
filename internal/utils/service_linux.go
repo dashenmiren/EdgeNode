@@ -1,28 +1,32 @@
+//go:build linux
 // +build linux
 
 package utils
 
 import (
 	"errors"
-	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/files"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
+	"time"
+
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/iwind/TeaGo/Tea"
+	"github.com/iwind/TeaGo/files"
 )
 
 var systemdServiceFile = "/etc/systemd/system/edge-node.service"
 var initServiceFile = "/etc/init.d/" + teaconst.SystemdServiceName
 
-// 安装服务
+// Install 安装服务
 func (this *ServiceManager) Install(exePath string, args []string) error {
 	if os.Getgid() != 0 {
 		return errors.New("only root users can install the service")
 	}
 
-	systemd, err := exec.LookPath("systemctl")
+	systemd, err := executils.LookPath("systemctl")
 	if err != nil {
 		return this.installInitService(exePath, args)
 	}
@@ -30,14 +34,14 @@ func (this *ServiceManager) Install(exePath string, args []string) error {
 	return this.installSystemdService(systemd, exePath, args)
 }
 
-// 启动服务
+// Start 启动服务
 func (this *ServiceManager) Start() error {
 	if os.Getgid() != 0 {
 		return errors.New("only root users can start the service")
 	}
 
 	if files.NewFile(systemdServiceFile).Exists() {
-		systemd, err := exec.LookPath("systemctl")
+		systemd, err := executils.LookPath("systemctl")
 		if err != nil {
 			return err
 		}
@@ -47,23 +51,23 @@ func (this *ServiceManager) Start() error {
 	return exec.Command("service", teaconst.ProcessName, "start").Start()
 }
 
-// 删除服务
+// Uninstall 删除服务
 func (this *ServiceManager) Uninstall() error {
 	if os.Getgid() != 0 {
 		return errors.New("only root users can uninstall the service")
 	}
 
 	if files.NewFile(systemdServiceFile).Exists() {
-		systemd, err := exec.LookPath("systemctl")
+		systemd, err := executils.LookPath("systemctl")
 		if err != nil {
 			return err
 		}
 
 		// disable service
-		exec.Command(systemd, "disable", teaconst.SystemdServiceName+".service").Start()
+		_ = executils.NewTimeoutCmd(10*time.Second, systemd, "disable", teaconst.SystemdServiceName+".service").Start()
 
 		// reload
-		exec.Command(systemd, "daemon-reload")
+		_ = executils.NewTimeoutCmd(10*time.Second, systemd, "daemon-reload").Start()
 
 		return files.NewFile(systemdServiceFile).Delete()
 	}
@@ -83,18 +87,18 @@ func (this *ServiceManager) installInitService(exePath string, args []string) er
 		return errors.New("'scripts/" + shortName + "' file not exists")
 	}
 
-	data, err := ioutil.ReadFile(scriptFile)
+	data, err := os.ReadFile(scriptFile)
 	if err != nil {
 		return err
 	}
 
 	data = regexp.MustCompile("INSTALL_DIR=.+").ReplaceAll(data, []byte("INSTALL_DIR="+Tea.Root))
-	err = ioutil.WriteFile(initServiceFile, data, 0777)
+	err = os.WriteFile(initServiceFile, data, 0777)
 	if err != nil {
 		return err
 	}
 
-	chkCmd, err := exec.LookPath("chkconfig")
+	chkCmd, err := executils.LookPath("chkconfig")
 	if err != nil {
 		return err
 	}
@@ -109,10 +113,17 @@ func (this *ServiceManager) installInitService(exePath string, args []string) er
 
 // install systemd service
 func (this *ServiceManager) installSystemdService(systemd, exePath string, args []string) error {
-	shortName := teaconst.SystemdServiceName
-	longName := "GoEdge Node" // TODO 将来可以修改
+	var shortName = teaconst.SystemdServiceName
+	var longName = "GoCDN Node" // TODO 将来可以修改
 
-	desc := `# Provides:          ` + shortName + `
+	var startCmd = exePath + " daemon"
+	bashPath, _ := executils.LookPath("bash")
+	if len(bashPath) > 0 {
+		startCmd = bashPath + " -c \"" + startCmd + "\""
+	}
+
+	var desc = `### BEGIN INIT INFO
+# Provides:          ` + shortName + `
 # Required-Start:    $all
 # Required-Stop:
 # Default-Start:     2 3 4 5
@@ -129,7 +140,7 @@ After=network-online.target
 Type=simple
 Restart=always
 RestartSec=1s
-ExecStart=` + exePath + ` daemon
+ExecStart=` + startCmd + `
 ExecStop=` + exePath + ` stop
 ExecReload=` + exePath + ` reload
 
@@ -137,18 +148,23 @@ ExecReload=` + exePath + ` reload
 WantedBy=multi-user.target`
 
 	// write file
-	err := ioutil.WriteFile(systemdServiceFile, []byte(desc), 0777)
+	err := os.WriteFile(systemdServiceFile, []byte(desc), 0777)
 	if err != nil {
 		return err
 	}
 
 	// stop current systemd service if running
-	exec.Command(systemd, "stop", shortName+".service")
+	_ = executils.NewTimeoutCmd(10*time.Second, systemd, "stop", shortName+".service").Start()
 
 	// reload
-	exec.Command(systemd, "daemon-reload")
+	_ = executils.NewTimeoutCmd(10*time.Second, systemd, "daemon-reload").Start()
 
 	// enable
-	cmd := exec.Command(systemd, "enable", shortName+".service")
-	return cmd.Run()
+	var cmd = executils.NewTimeoutCmd(10*time.Second, systemd, "enable", shortName+".service")
+	cmd.WithStderr()
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, cmd.Stderr())
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package checkpoints
 
 import (
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 )
@@ -14,18 +15,18 @@ func (this *RequestGeneralHeaderLengthCheckpoint) IsComposed() bool {
 	return true
 }
 
-func (this *RequestGeneralHeaderLengthCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+func (this *RequestGeneralHeaderLengthCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
 	value = false
 
-	headers := options.GetSlice("headers")
+	var headers = options.GetSlice("headers")
 	if len(headers) == 0 {
 		return
 	}
 
-	length := options.GetInt("length")
+	var length = options.GetInt("length")
 
 	for _, header := range headers {
-		v := req.Header.Get(types.String(header))
+		v := req.WAFRaw().Header.Get(types.String(header))
 		if len(v) > length {
 			value = true
 			break
@@ -35,6 +36,10 @@ func (this *RequestGeneralHeaderLengthCheckpoint) RequestValue(req *requests.Req
 	return
 }
 
-func (this *RequestGeneralHeaderLengthCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+func (this *RequestGeneralHeaderLengthCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
 	return
+}
+
+func (this *RequestGeneralHeaderLengthCheckpoint) CacheLife() utils.CacheLife {
+	return utils.CacheDisabled
 }

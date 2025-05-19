@@ -3,22 +3,30 @@ package caches
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/iwind/TeaGo/types"
 	"io"
 	"os"
+
+	rangeutils "github.com/dashenmiren/EdgeNode/internal/utils/ranges"
+	"github.com/iwind/TeaGo/types"
 )
 
 type FileReader struct {
 	fp *os.File
 
+	openFile      *OpenFile
+	openFileCache *OpenFileCache
+
+	meta   []byte
+	header []byte
+
+	expiresAt    int64
 	status       int
 	headerOffset int64
 	headerSize   int
 	bodySize     int64
 	bodyOffset   int64
 
-	bodyBufLen int
-	bodyBuf    []byte
+	isClosed bool
 }
 
 func NewFileReader(fp *os.File) *FileReader {
@@ -26,59 +34,51 @@ func NewFileReader(fp *os.File) *FileReader {
 }
 
 func (this *FileReader) Init() error {
-	isOk := false
+	return this.InitAutoDiscard(true)
+}
 
-	defer func() {
-		if !isOk {
-			_ = this.discard()
+func (this *FileReader) InitAutoDiscard(autoDiscard bool) error {
+	if this.openFile != nil {
+		this.meta = this.openFile.meta
+		this.header = this.openFile.header
+	}
+
+	var isOk = false
+
+	if autoDiscard {
+		defer func() {
+			if !isOk {
+				_ = this.discard()
+			}
+		}()
+	}
+
+	var buf = this.meta
+	if len(buf) == 0 {
+		buf = make([]byte, SizeMeta)
+		ok, err := this.readToBuff(this.fp, buf)
+		if err != nil {
+			return err
 		}
-	}()
+		if !ok {
+			return ErrNotFound
+		}
+		this.meta = buf
+	}
 
-	// 读取状态
-	_, err := this.fp.Seek(SizeExpiresAt, io.SeekStart)
-	if err != nil {
-		_ = this.discard()
-		return err
-	}
-	buf := make([]byte, 3)
-	ok, err := this.readToBuff(this.fp, buf)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNotFound
-	}
-	status := types.Int(string(buf))
+	this.expiresAt = int64(binary.BigEndian.Uint32(buf[:SizeExpiresAt]))
+
+	var status = types.Int(string(buf[OffsetStatus : OffsetStatus+SizeStatus]))
 	if status < 100 || status > 999 {
 		return errors.New("invalid status")
 	}
 	this.status = status
 
 	// URL
-	_, err = this.fp.Seek(SizeExpiresAt+SizeStatus, io.SeekStart)
-	if err != nil {
-		return err
-	}
-
-	bytes4 := make([]byte, 4)
-	ok, err = this.readToBuff(this.fp, bytes4)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNotFound
-	}
-	urlLength := binary.BigEndian.Uint32(bytes4)
+	var urlLength = binary.BigEndian.Uint32(buf[OffsetURLLength : OffsetURLLength+SizeURLLength])
 
 	// header
-	ok, err = this.readToBuff(this.fp, bytes4)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNotFound
-	}
-	headerSize := int(binary.BigEndian.Uint32(bytes4))
+	var headerSize = int(binary.BigEndian.Uint32(buf[OffsetHeaderLength : OffsetHeaderLength+SizeHeaderLength]))
 	if headerSize == 0 {
 		return nil
 	}
@@ -86,20 +86,28 @@ func (this *FileReader) Init() error {
 	this.headerOffset = int64(SizeMeta) + int64(urlLength)
 
 	// body
-	bytes8 := make([]byte, 8)
-	ok, err = this.readToBuff(this.fp, bytes8)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNotFound
-	}
-	bodySize := int(binary.BigEndian.Uint64(bytes8))
+	this.bodyOffset = this.headerOffset + int64(headerSize)
+	var bodySize = int(binary.BigEndian.Uint64(buf[OffsetBodyLength : OffsetBodyLength+SizeBodyLength]))
 	if bodySize == 0 {
+		isOk = true
 		return nil
 	}
 	this.bodySize = int64(bodySize)
-	this.bodyOffset = this.headerOffset + int64(headerSize)
+
+	// read header
+	if this.openFileCache != nil && len(this.header) == 0 {
+		if headerSize > 0 && headerSize <= 512 {
+			this.header = make([]byte, headerSize)
+			_, err := this.fp.Seek(this.headerOffset, io.SeekStart)
+			if err != nil {
+				return err
+			}
+			_, err = this.readToBuff(this.fp, this.header)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	isOk = true
 
@@ -108,6 +116,10 @@ func (this *FileReader) Init() error {
 
 func (this *FileReader) TypeName() string {
 	return "disk"
+}
+
+func (this *FileReader) ExpiresAt() int64 {
+	return this.expiresAt
 }
 
 func (this *FileReader) Status() int {
@@ -131,7 +143,23 @@ func (this *FileReader) BodySize() int64 {
 }
 
 func (this *FileReader) ReadHeader(buf []byte, callback ReaderFunc) error {
-	isOk := false
+	// 使用缓存
+	if len(this.header) > 0 && len(buf) >= len(this.header) {
+		copy(buf, this.header)
+		_, err := callback(len(this.header))
+		if err != nil {
+			return err
+		}
+
+		// 移动到Body位置
+		_, err = this.fp.Seek(this.bodyOffset, io.SeekStart)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	var isOk = false
 
 	defer func() {
 		if !isOk {
@@ -144,7 +172,7 @@ func (this *FileReader) ReadHeader(buf []byte, callback ReaderFunc) error {
 		return err
 	}
 
-	headerSize := this.headerSize
+	var headerSize = this.headerSize
 
 	for {
 		n, err := this.fp.Read(buf)
@@ -160,10 +188,6 @@ func (this *FileReader) ReadHeader(buf []byte, callback ReaderFunc) error {
 				}
 				headerSize -= n
 			} else {
-				if n > headerSize {
-					this.bodyBuf = buf[headerSize:]
-					this.bodyBufLen = n - headerSize
-				}
 				_, e := callback(headerSize)
 				if e != nil {
 					isOk = true
@@ -182,11 +206,21 @@ func (this *FileReader) ReadHeader(buf []byte, callback ReaderFunc) error {
 
 	isOk = true
 
+	// 移动到Body位置
+	_, err = this.fp.Seek(this.bodyOffset, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (this *FileReader) ReadBody(buf []byte, callback ReaderFunc) error {
-	isOk := false
+	if this.bodySize == 0 {
+		return nil
+	}
+
+	var isOk = false
 
 	defer func() {
 		if !isOk {
@@ -194,27 +228,7 @@ func (this *FileReader) ReadBody(buf []byte, callback ReaderFunc) error {
 		}
 	}()
 
-	offset := this.bodyOffset
-
-	// 直接返回从Header中剩余的
-	if this.bodyBufLen > 0 && len(buf) >= this.bodyBufLen {
-		offset += int64(this.bodyBufLen)
-
-		copy(buf, this.bodyBuf)
-		isOk = true
-
-		goNext, err := callback(this.bodyBufLen)
-		if err != nil {
-			return err
-		}
-		if !goNext {
-			return nil
-		}
-
-		if this.bodySize <= int64(this.bodyBufLen) {
-			return nil
-		}
-	}
+	var offset = this.bodyOffset
 
 	// 开始读Body部分
 	_, err := this.fp.Seek(offset, io.SeekStart)
@@ -247,8 +261,23 @@ func (this *FileReader) ReadBody(buf []byte, callback ReaderFunc) error {
 	return nil
 }
 
+func (this *FileReader) Read(buf []byte) (n int, err error) {
+	if this.bodySize == 0 {
+		n = 0
+		err = io.EOF
+		return
+	}
+
+	n, err = this.fp.Read(buf)
+	if err != nil && err != io.EOF {
+		_ = this.discard()
+	}
+
+	return
+}
+
 func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callback ReaderFunc) error {
-	isOk := false
+	var isOk = false
 
 	defer func() {
 		if !isOk {
@@ -256,7 +285,7 @@ func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callba
 		}
 	}()
 
-	offset := start
+	var offset = start
 	if start < 0 {
 		offset = this.bodyOffset + this.bodySize + end
 		end = this.bodyOffset + this.bodySize - 1
@@ -279,7 +308,7 @@ func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callba
 	for {
 		n, err := this.fp.Read(buf)
 		if n > 0 {
-			n2 := int(end-offset) + 1
+			var n2 = int(end-offset) + 1
 			if n2 <= n {
 				_, e := callback(n2)
 				if e != nil {
@@ -316,7 +345,33 @@ func (this *FileReader) ReadBodyRange(buf []byte, start int64, end int64, callba
 	return nil
 }
 
+// ContainsRange 是否包含某些区间内容
+func (this *FileReader) ContainsRange(r rangeutils.Range) (r2 rangeutils.Range, ok bool) {
+	return r, true
+}
+
+// FP 原始的文件句柄
+func (this *FileReader) FP() *os.File {
+	return this.fp
+}
+
 func (this *FileReader) Close() error {
+	if this.isClosed {
+		return nil
+	}
+	this.isClosed = true
+
+	if this.openFileCache != nil {
+		if this.openFile != nil {
+			this.openFileCache.Put(this.fp.Name(), this.openFile)
+		} else {
+			var cacheMeta = make([]byte, len(this.meta))
+			copy(cacheMeta, this.meta)
+			this.openFileCache.Put(this.fp.Name(), NewOpenFile(this.fp, cacheMeta, this.header, this.LastModified(), this.bodySize))
+		}
+		return nil
+	}
+
 	return this.fp.Close()
 }
 
@@ -331,5 +386,13 @@ func (this *FileReader) readToBuff(fp *os.File, buf []byte) (ok bool, err error)
 
 func (this *FileReader) discard() error {
 	_ = this.fp.Close()
+	this.isClosed = true
+
+	// close open file cache
+	if this.openFileCache != nil {
+		this.openFileCache.Close(this.fp.Name())
+	}
+
+	// remove file
 	return os.Remove(this.fp.Name())
 }

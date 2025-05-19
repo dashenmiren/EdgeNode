@@ -1,9 +1,11 @@
 package checkpoints
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/maps"
 )
 
 func TestCCCheckpoint_RequestValue(t *testing.T) {
@@ -12,31 +14,31 @@ func TestCCCheckpoint_RequestValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(raw)
-	req.RemoteAddr = "127.0.0.1"
+	req := requests.NewTestRequest(raw)
+	req.WAFRaw().RemoteAddr = "127.0.0.1"
 
 	checkpoint := new(CCCheckpoint)
 	checkpoint.Init()
 	checkpoint.Start()
 
-	options := map[string]string{
+	options := maps.Map{
 		"period": "5",
 	}
-	t.Log(checkpoint.RequestValue(req, "requests", options))
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 
-	req.RemoteAddr = "127.0.0.2"
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	req.WAFRaw().RemoteAddr = "127.0.0.2"
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 
-	req.RemoteAddr = "127.0.0.1"
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	req.WAFRaw().RemoteAddr = "127.0.0.1"
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 
-	req.RemoteAddr = "127.0.0.2"
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	req.WAFRaw().RemoteAddr = "127.0.0.2"
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 
-	req.RemoteAddr = "127.0.0.2"
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	req.WAFRaw().RemoteAddr = "127.0.0.2"
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 
-	req.RemoteAddr = "127.0.0.2"
-	t.Log(checkpoint.RequestValue(req, "requests", options))
+	req.WAFRaw().RemoteAddr = "127.0.0.2"
+	t.Log(checkpoint.RequestValue(req, "requests", options, 1))
 }

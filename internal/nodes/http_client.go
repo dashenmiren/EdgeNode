@@ -1,8 +1,9 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"net/http"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
 )
 
 // HTTPClient HTTP客户端
@@ -15,7 +16,7 @@ type HTTPClient struct {
 func NewHTTPClient(rawClient *http.Client) *HTTPClient {
 	return &HTTPClient{
 		rawClient: rawClient,
-		accessAt:  utils.UnixTime(),
+		accessAt:  fasttime.Now().Unix(),
 	}
 }
 
@@ -26,7 +27,7 @@ func (this *HTTPClient) RawClient() *http.Client {
 
 // UpdateAccessTime 更新访问时间
 func (this *HTTPClient) UpdateAccessTime() {
-	this.accessAt = utils.UnixTime()
+	this.accessAt = fasttime.Now().Unix()
 }
 
 // AccessTime 获取访问时间

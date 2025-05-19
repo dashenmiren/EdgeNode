@@ -1,14 +1,20 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
-func (this *HTTPRequest) doRedirectToHTTPS(redirectToHTTPSConfig *serverconfigs.HTTPRedirectToHTTPSConfig) {
-	host := this.RawReq.Host
+func (this *HTTPRequest) doRedirectToHTTPS(redirectToHTTPSConfig *serverconfigs.HTTPRedirectToHTTPSConfig) (shouldBreak bool) {
+	var host = this.RawReq.Host
+
+	// 检查域名是否匹配
+	if !redirectToHTTPSConfig.MatchDomain(host) {
+		return false
+	}
 
 	if len(redirectToHTTPSConfig.Host) > 0 {
 		if redirectToHTTPSConfig.Port > 0 && redirectToHTTPSConfig.Port != 443 {
@@ -17,7 +23,7 @@ func (this *HTTPRequest) doRedirectToHTTPS(redirectToHTTPSConfig *serverconfigs.
 			host = redirectToHTTPSConfig.Host
 		}
 	} else if redirectToHTTPSConfig.Port > 0 {
-		lastIndex := strings.LastIndex(host, ":")
+		var lastIndex = strings.LastIndex(host, ":")
 		if lastIndex > 0 {
 			host = host[:lastIndex]
 		}
@@ -25,17 +31,20 @@ func (this *HTTPRequest) doRedirectToHTTPS(redirectToHTTPSConfig *serverconfigs.
 			host = host + ":" + strconv.Itoa(redirectToHTTPSConfig.Port)
 		}
 	} else {
-		lastIndex := strings.LastIndex(host, ":")
+		var lastIndex = strings.LastIndex(host, ":")
 		if lastIndex > 0 {
 			host = host[:lastIndex]
 		}
 	}
 
-	statusCode := http.StatusMovedPermanently
+	var statusCode = http.StatusMovedPermanently
 	if redirectToHTTPSConfig.Status > 0 {
 		statusCode = redirectToHTTPSConfig.Status
 	}
 
-	newURL := "https://" + host + this.RawReq.RequestURI
-	http.Redirect(this.writer, this.RawReq, newURL, statusCode)
+	var newURL = "https://" + host + this.RawReq.RequestURI
+	this.ProcessResponseHeaders(this.writer.Header(), statusCode)
+	httpRedirect(this.writer, this.RawReq, newURL, statusCode)
+
+	return true
 }

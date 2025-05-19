@@ -1,13 +1,19 @@
 package iplibrary
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 func TestScriptAction_AddItem(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
 	action := NewScriptAction()
 	action.config = &firewallconfigs.FirewallActionScriptConfig{
 		Path: "/tmp/ip-item.sh",
@@ -27,6 +33,10 @@ func TestScriptAction_AddItem(t *testing.T) {
 }
 
 func TestScriptAction_DeleteItem(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
 	action := NewScriptAction()
 	action.config = &firewallconfigs.FirewallActionScriptConfig{
 		Path: "/tmp/ip-item.sh",

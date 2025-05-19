@@ -1,13 +1,17 @@
-// Copyright 2021 Liuxiangchao iwind.liu@gmail.com. All rights reserved.
-
 package nodes
 
 import (
-	_ "github.com/iwind/TeaGo/bootstrap"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	_ "github.com/iwind/TeaGo/bootstrap"
 )
 
 func TestUpgradeManager_install(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
 	err := NewUpgradeManager().install()
 	if err != nil {
 		t.Fatal(err)

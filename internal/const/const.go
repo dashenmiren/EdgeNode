@@ -1,7 +1,7 @@
 package teaconst
 
 const (
-	Version = "0.2.0"
+	Version = "1.3.4"
 
 	ProductName = "Edge Node"
 	ProcessName = "edge-node"
@@ -13,4 +13,9 @@ const (
 
 	// SystemdServiceName systemd
 	SystemdServiceName = "edge-node"
+
+	AccessLogSockName    = "edge-node.accesslog"
+	CacheGarbageSockName = "edge-node.cache.garbage"
+
+	EnableKVCacheStore = false // determine store cache keys in KVStore or sqlite
 )

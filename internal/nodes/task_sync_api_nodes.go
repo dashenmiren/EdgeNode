@@ -1,27 +1,40 @@
 package nodes
 
 import (
+	"time"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeNode/internal/configs"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
+	"github.com/dashenmiren/EdgeNode/internal/trackers"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/logs"
-	"sort"
-	"strings"
-	"time"
 )
 
+var sharedSyncAPINodesTask = NewSyncAPINodesTask()
+
 func init() {
+	if !teaconst.IsMain {
+		return
+	}
+
 	events.On(events.EventStart, func() {
-		task := NewSyncAPINodesTask()
-		go task.Start()
+		goman.New(func() {
+			sharedSyncAPINodesTask.Start()
+		})
+	})
+	events.OnClose(func() {
+		sharedSyncAPINodesTask.Stop()
 	})
 }
 
-// API节点同步任务
+// SyncAPINodesTask API节点同步任务
 type SyncAPINodesTask struct {
+	ticker *time.Ticker
 }
 
 func NewSyncAPINodesTask() *SyncAPINodesTask {
@@ -29,16 +42,12 @@ func NewSyncAPINodesTask() *SyncAPINodesTask {
 }
 
 func (this *SyncAPINodesTask) Start() {
-	ticker := time.NewTicker(5 * time.Minute)
+	this.ticker = time.NewTicker(5 * time.Minute)
 	if Tea.IsTesting() {
 		// 快速测试
-		ticker = time.NewTicker(1 * time.Minute)
+		this.ticker = time.NewTicker(1 * time.Minute)
 	}
-	events.On(events.EventQuit, func() {
-		remotelogs.Println("SYNC_API_NODES_TASK", "quit task")
-		ticker.Stop()
-	})
-	for range ticker.C {
+	for range this.ticker.C {
 		err := this.Loop()
 		if err != nil {
 			logs.Println("[TASK][SYNC_API_NODES_TASK]" + err.Error())
@@ -46,19 +55,41 @@ func (this *SyncAPINodesTask) Start() {
 	}
 }
 
+func (this *SyncAPINodesTask) Stop() {
+	if this.ticker != nil {
+		this.ticker.Stop()
+	}
+}
+
 func (this *SyncAPINodesTask) Loop() error {
+	// 如果有节点定制的API节点地址
+	var hasCustomizedAPINodeAddrs = sharedNodeConfig != nil && len(sharedNodeConfig.APINodeAddrs) > 0
+
+	config, err := configs.LoadAPIConfig()
+	if err != nil {
+		return err
+	}
+
+	// 是否禁止自动升级
+	if config.RPCDisableUpdate {
+		return nil
+	}
+
+	var tr = trackers.Begin("SYNC_API_NODES")
+	defer tr.End()
+
 	// 获取所有可用的节点
 	rpcClient, err := rpc.SharedRPC()
 	if err != nil {
 		return err
 	}
-	resp, err := rpcClient.APINodeRPC().FindAllEnabledAPINodes(rpcClient.Context(), &pb.FindAllEnabledAPINodesRequest{})
+	resp, err := rpcClient.APINodeRPC.FindAllEnabledAPINodes(rpcClient.Context(), &pb.FindAllEnabledAPINodesRequest{})
 	if err != nil {
 		return err
 	}
 
-	newEndpoints := []string{}
-	for _, node := range resp.Nodes {
+	var newEndpoints = []string{}
+	for _, node := range resp.ApiNodes {
 		if !node.IsOn {
 			continue
 		}
@@ -66,32 +97,32 @@ func (this *SyncAPINodesTask) Loop() error {
 	}
 
 	// 和现有的对比
-	config, err := configs.LoadAPIConfig()
-	if err != nil {
-		return err
+	if utils.EqualStrings(newEndpoints, config.RPCEndpoints) {
+		return nil
 	}
-	if this.isSame(newEndpoints, config.RPC.Endpoints) {
+
+	// 测试是否有API节点可用
+	var hasOk = rpcClient.TestEndpoints(newEndpoints)
+	if !hasOk {
 		return nil
 	}
 
 	// 修改RPC对象配置
-	config.RPC.Endpoints = newEndpoints
-	err = rpcClient.UpdateConfig(config)
-	if err != nil {
-		return err
+	config.RPCEndpoints = newEndpoints
+
+	// 更新当前RPC
+	if !hasCustomizedAPINodeAddrs {
+		err = rpcClient.UpdateConfig(config)
+		if err != nil {
+			return err
+		}
 	}
 
 	// 保存到文件
-	err = config.WriteFile(Tea.ConfigFile("api.yaml"))
+	err = config.WriteFile(Tea.ConfigFile(configs.ConfigFileName))
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (this *SyncAPINodesTask) isSame(endpoints1 []string, endpoints2 []string) bool {
-	sort.Strings(endpoints1)
-	sort.Strings(endpoints2)
-	return strings.Join(endpoints1, "&") == strings.Join(endpoints2, "&")
 }

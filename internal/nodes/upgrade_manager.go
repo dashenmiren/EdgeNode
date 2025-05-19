@@ -1,23 +1,24 @@
-// Copyright 2021 Liuxiangchao iwind.liu@gmail.com. All rights reserved.
-
 package nodes
 
 import (
 	"crypto/md5"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"time"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/rpc"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/logs"
 	stringutil "github.com/iwind/TeaGo/utils/string"
-	"os"
-	"os/exec"
-	"runtime"
-	"time"
+	"github.com/iwind/gosock/pkg/gosock"
 )
 
 var sharedUpgradeManager = NewUpgradeManager()
@@ -27,6 +28,7 @@ var sharedUpgradeManager = NewUpgradeManager()
 type UpgradeManager struct {
 	isInstalling bool
 	lastFile     string
+	exe          string
 }
 
 // NewUpgradeManager 获取新对象
@@ -36,6 +38,14 @@ func NewUpgradeManager() *UpgradeManager {
 
 // Start 启动升级
 func (this *UpgradeManager) Start() {
+	// 必须放在文件解压之前读取可执行文件路径，防止解析之后，当前的可执行文件路径发生改变
+	exe, err := os.Executable()
+	if err != nil {
+		remotelogs.Error("UPGRADE_MANAGER", "can not find current executable file name")
+		return
+	}
+	this.exe = exe
+
 	// 测试环境下不更新
 	if Tea.IsTesting() {
 		return
@@ -46,26 +56,30 @@ func (this *UpgradeManager) Start() {
 	}
 	this.isInstalling = true
 
-	// 还原安装状态
-	defer func() {
-		this.isInstalling = false
-	}()
-
 	remotelogs.Println("UPGRADE_MANAGER", "upgrading node ...")
-	err := this.install()
+	err = this.install()
 	if err != nil {
 		remotelogs.Error("UPGRADE_MANAGER", "download failed: "+err.Error())
+
+		this.isInstalling = false
 		return
 	}
 
 	remotelogs.Println("UPGRADE_MANAGER", "upgrade successfully")
 
-	go func() {
+	goman.New(func() {
 		err = this.restart()
 		if err != nil {
-			logs.Println("UPGRADE_MANAGER", err.Error())
+			remotelogs.Error("UPGRADE_MANAGER", err.Error())
 		}
-	}()
+
+		this.isInstalling = false
+	})
+}
+
+// IsInstalling 检查是否正在安装
+func (this *UpgradeManager) IsInstalling() bool {
+	return this.isInstalling
 }
 
 func (this *UpgradeManager) install() error {
@@ -83,7 +97,7 @@ func (this *UpgradeManager) install() error {
 	}
 
 	// 创建临时文件
-	dir := Tea.Root + "/tmp"
+	var dir = Tea.Root + "/tmp"
 	_, err := os.Stat(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -98,7 +112,7 @@ func (this *UpgradeManager) install() error {
 
 	remotelogs.Println("UPGRADE_MANAGER", "downloading new node ...")
 
-	path := dir + "/edge-node" + ".tmp"
+	var path = dir + "/edge-node.tmp"
 	fp, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0777)
 	if err != nil {
 		return err
@@ -120,7 +134,7 @@ func (this *UpgradeManager) install() error {
 	var sum = ""
 	var filename = ""
 	for {
-		resp, err := client.NodeRPC().DownloadNodeInstallationFile(client.Context(), &pb.DownloadNodeInstallationFileRequest{
+		resp, err := client.NodeRPC.DownloadNodeInstallationFile(client.Context(), &pb.DownloadNodeInstallationFileRequest{
 			Os:          runtime.GOOS,
 			Arch:        runtime.GOARCH,
 			ChunkOffset: offset,
@@ -203,16 +217,16 @@ func (this *UpgradeManager) unzip(zipPath string) error {
 	}
 
 	// 先改先前的可执行文件
-	err := os.Rename(target+"/bin/edge-node", target+"/bin/.edge-node.old")
-	hasBackup := err == nil
+	err := os.Rename(target+"/bin/"+teaconst.ProcessName, target+"/bin/."+teaconst.ProcessName+".dist")
+	var hasBackup = err == nil
 	defer func() {
 		if !isOk && hasBackup {
 			// 失败时还原
-			_ = os.Rename(target+"/bin/.edge-node.old", target+"/bin/edge-node")
+			_ = os.Rename(target+"/bin/."+teaconst.ProcessName+".dist", target+"/bin/"+teaconst.ProcessName)
 		}
 	}()
 
-	unzip := utils.NewUnzip(zipPath, target, "edge-node/")
+	var unzip = utils.NewUnzip(zipPath, target, "edge-node/")
 	err = unzip.Run()
 	if err != nil {
 		return err
@@ -225,21 +239,23 @@ func (this *UpgradeManager) unzip(zipPath string) error {
 
 // 重启
 func (this *UpgradeManager) restart() error {
+	// 关闭当前sock，防止无法重启
+	_ = gosock.NewTmpSock(teaconst.ProcessName).Close()
+
 	// 重新启动
 	if DaemonIsOn && DaemonPid == os.Getppid() {
-		os.Exit(0) // TODO 试着更优雅重启
+		utils.Exit() // TODO 试着更优雅重启
 	} else {
-		exe, err := os.Executable()
-		if err != nil {
-			return err
-		}
-
 		// quit
 		events.Notify(events.EventQuit)
 
+		// terminated
+		events.Notify(events.EventTerminated)
+
 		// 启动
-		cmd := exec.Command(exe, "start")
-		err = cmd.Start()
+		var exe = filepath.Dir(this.exe) + "/" + teaconst.ProcessName
+		var cmd = executils.NewCmd(exe, "start")
+		err := cmd.Start()
 		if err != nil {
 			return err
 		}

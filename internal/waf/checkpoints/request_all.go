@@ -2,35 +2,44 @@ package checkpoints
 
 import (
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 )
 
-// ${requestAll}
+// RequestAllCheckpoint ${requestAll}
 type RequestAllCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestAllCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
-	valueBytes := []byte{}
-	if len(req.RequestURI) > 0 {
-		valueBytes = append(valueBytes, req.RequestURI...)
-	} else if req.URL != nil {
-		valueBytes = append(valueBytes, req.URL.RequestURI()...)
+func (this *RequestAllCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+	var valueBytes = [][]byte{}
+	if len(req.WAFRaw().RequestURI) > 0 {
+		valueBytes = append(valueBytes, []byte(req.WAFRaw().RequestURI))
+	} else if req.WAFRaw().URL != nil {
+		valueBytes = append(valueBytes, []byte(req.WAFRaw().URL.RequestURI()))
 	}
 
-	if req.Body != nil {
-		valueBytes = append(valueBytes, ' ')
+	if this.RequestBodyIsEmpty(req) {
+		value = valueBytes
+		return
+	}
 
-		if len(req.BodyData) == 0 {
-			data, err := req.ReadBody(int64(32 * 1024 * 1024)) // read 32m bytes
+	if req.WAFRaw().Body != nil {
+		var bodyData = req.WAFGetCacheBody()
+		hasRequestBody = true
+		if len(bodyData) == 0 {
+			data, err := req.WAFReadBody(req.WAFMaxRequestSize()) // read body
 			if err != nil {
-				return "", err, nil
+				return "", hasRequestBody, err, nil
 			}
 
-			req.BodyData = data
-			req.RestoreBody(data)
+			bodyData = data
+			req.WAFSetCacheBody(data)
+			req.WAFRestoreBody(data)
 		}
-		valueBytes = append(valueBytes, req.BodyData...)
+		if len(bodyData) > 0 {
+			valueBytes = append(valueBytes, bodyData)
+		}
 	}
 
 	value = valueBytes
@@ -38,10 +47,14 @@ func (this *RequestAllCheckpoint) RequestValue(req *requests.Request, param stri
 	return
 }
 
-func (this *RequestAllCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+func (this *RequestAllCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
 	value = ""
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options)
+		return this.RequestValue(req, param, options, ruleId)
 	}
 	return
+}
+
+func (this *RequestAllCheckpoint) CacheLife() utils.CacheLife {
+	return utils.CacheShortLife
 }

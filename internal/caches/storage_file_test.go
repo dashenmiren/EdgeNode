@@ -3,28 +3,36 @@ package caches
 import (
 	"bytes"
 	"errors"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/Tea"
-	_ "github.com/iwind/TeaGo/bootstrap"
-	"github.com/iwind/TeaGo/logs"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"runtime"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/iwind/TeaGo/Tea"
+	_ "github.com/iwind/TeaGo/bootstrap"
+	"github.com/iwind/TeaGo/logs"
 )
 
 func TestFileStorage_Init(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
 
 	err := storage.Init()
 	if err != nil {
@@ -40,17 +48,26 @@ func TestFileStorage_Init(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	storage.purgeLoop()
-	t.Log(storage.list.(*FileList).total, "entries left")
+	t.Log(storage.list.(*SQLiteFileList).Stat(func(hash string) bool {
+		return true
+	}))
 }
 
 func TestFileStorage_OpenWriter(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +79,7 @@ func TestFileStorage_OpenWriter(t *testing.T) {
 
 	header := []byte("Header")
 	body := []byte("This is Body")
-	writer, err := storage.OpenWriter("my-key", time.Now().Unix()+86400, 200)
+	writer, err := storage.OpenWriter("my-key", time.Now().Unix()+86400, 200, -1, -1, -1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,14 +104,63 @@ func TestFileStorage_OpenWriter(t *testing.T) {
 	t.Log("ok")
 }
 
+func TestFileStorage_OpenWriter_Partial(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
+		Id:   2,
+		IsOn: true,
+		Options: map[string]interface{}{
+			"dir": Tea.Root + "/caches",
+		},
+	})
+
+	defer storage.Stop()
+
+	err := storage.Init()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writer, err := storage.OpenWriter("my-key", time.Now().Unix()+86400, 200, -1, -1, -1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = writer.WriteHeader([]byte("Content-Type:text/html; charset=utf-8"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writer.WriteAt(0, []byte("Hello, World"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(writer)
+}
+
 func TestFileStorage_OpenWriter_HTTP(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -104,20 +170,20 @@ func TestFileStorage_OpenWriter_HTTP(t *testing.T) {
 		t.Log(time.Since(now).Seconds()*1000, "ms")
 	}()
 
-	writer, err := storage.OpenWriter("my-http-response", time.Now().Unix()+86400, 200)
+	writer, err := storage.OpenWriter("my-http-response", time.Now().Unix()+86400, 200, -1, -1, -1, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(writer)
 
 	resp := &http.Response{
-		StatusCode: 200,
+		StatusCode: http.StatusOK,
 		Header: http.Header{
 			"Content-Type":  []string{"text/html; charset=utf-8"},
 			"Last-Modified": []string{"Wed, 06 Jan 2021 10:03:29 GMT"},
 			"Server":        []string{"CDN-Server"},
 		},
-		Body: ioutil.NopCloser(bytes.NewBuffer([]byte("THIS IS HTTP BODY"))),
+		Body: io.NopCloser(bytes.NewBuffer([]byte("THIS IS HTTP BODY"))),
 	}
 
 	for k, v := range resp.Header {
@@ -153,13 +219,20 @@ func TestFileStorage_OpenWriter_HTTP(t *testing.T) {
 }
 
 func TestFileStorage_Concurrent_Open_DifferentFile(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -177,10 +250,11 @@ func TestFileStorage_Concurrent_Open_DifferentFile(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			writer, err := storage.OpenWriter("abc"+strconv.Itoa(i), time.Now().Unix()+3600, 200)
+			writer, err := storage.OpenWriter("abc"+strconv.Itoa(i), time.Now().Unix()+3600, 200, -1, -1, -1, false)
 			if err != nil {
-				if err != ErrFileIsWriting {
-					t.Fatal(err)
+				if errors.Is(err, ErrFileIsWriting) {
+					t.Error(err)
+					return
 				}
 				return
 			}
@@ -188,7 +262,8 @@ func TestFileStorage_Concurrent_Open_DifferentFile(t *testing.T) {
 
 			_, err = writer.Write([]byte("Hello,World"))
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				return
 			}
 
 			// 故意造成慢速写入
@@ -196,7 +271,8 @@ func TestFileStorage_Concurrent_Open_DifferentFile(t *testing.T) {
 
 			err = writer.Close()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				return
 			}
 		}(i)
 	}
@@ -205,13 +281,20 @@ func TestFileStorage_Concurrent_Open_DifferentFile(t *testing.T) {
 }
 
 func TestFileStorage_Concurrent_Open_SameFile(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -229,10 +312,11 @@ func TestFileStorage_Concurrent_Open_SameFile(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			writer, err := storage.OpenWriter("abc"+strconv.Itoa(0), time.Now().Unix()+3600, 200)
+			writer, err := storage.OpenWriter("abc"+strconv.Itoa(0), time.Now().Unix()+3600, 200, -1, -1, -1, false)
 			if err != nil {
-				if err != ErrFileIsWriting {
-					t.Fatal(err)
+				if errors.Is(err, ErrFileIsWriting) {
+					t.Error(err)
+					return
 				}
 				return
 			}
@@ -241,7 +325,8 @@ func TestFileStorage_Concurrent_Open_SameFile(t *testing.T) {
 			t.Log("writing")
 			_, err = writer.Write([]byte("Hello,World"))
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				return
 			}
 
 			// 故意造成慢速写入
@@ -249,7 +334,8 @@ func TestFileStorage_Concurrent_Open_SameFile(t *testing.T) {
 
 			err = writer.Close()
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
+				return
 			}
 		}(i)
 	}
@@ -258,19 +344,26 @@ func TestFileStorage_Concurrent_Open_SameFile(t *testing.T) {
 }
 
 func TestFileStorage_Read(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
-	reader, err := storage.OpenReader("my-key")
+	reader, err := storage.OpenReader("my-key", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,19 +387,26 @@ func TestFileStorage_Read(t *testing.T) {
 }
 
 func TestFileStorage_Read_HTTP_Response(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
-	reader, err := storage.OpenReader("my-http-response")
+	reader, err := storage.OpenReader("my-http-response", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,20 +447,27 @@ func TestFileStorage_Read_HTTP_Response(t *testing.T) {
 }
 
 func TestFileStorage_Read_NotFound(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
 	buf := make([]byte, 6)
-	reader, err := storage.OpenReader("my-key-10000")
+	reader, err := storage.OpenReader("my-key-10000", false, false)
 	if err != nil {
 		if err == ErrNotFound {
 			t.Log("cache not fund")
@@ -380,13 +487,20 @@ func TestFileStorage_Read_NotFound(t *testing.T) {
 }
 
 func TestFileStorage_Delete(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -399,13 +513,20 @@ func TestFileStorage_Delete(t *testing.T) {
 }
 
 func TestFileStorage_Stat(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -424,13 +545,20 @@ func TestFileStorage_Stat(t *testing.T) {
 }
 
 func TestFileStorage_CleanAll(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -455,13 +583,20 @@ func TestFileStorage_CleanAll(t *testing.T) {
 }
 
 func TestFileStorage_Stop(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
@@ -470,23 +605,61 @@ func TestFileStorage_Stop(t *testing.T) {
 }
 
 func TestFileStorage_DecodeFile(t *testing.T) {
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, path := storage.keyPath("my-key")
-	item, err := storage.decodeFile(path)
+	_, path, _ := storage.keyPath("my-key")
+	t.Log(path)
+}
+
+func TestFileStorage_RemoveCacheFile(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(nil)
+
+	defer storage.Stop()
+
+	t.Log(storage.removeCacheFile("/Users/WorkSpace/EdgeProject/EdgeCache/p43/15/7e/157eba0dfc6dfb6fbbf20b1f9e584674.cache"))
+}
+
+func TestFileStorage_ScanGarbageCaches(t *testing.T) {
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
+		Id:      43,
+		Options: map[string]any{"dir": "/Users/WorkSpace/EdgeProject/EdgeCache"},
+	})
+	err := storage.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
-	logs.PrintAsJSON(item, t)
+
+	err = storage.ScanGarbageCaches(func(path string) error {
+		t.Log(path, PartialRangesFilePath(path))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func BenchmarkFileStorage_Read(b *testing.B) {
@@ -494,19 +667,22 @@ func BenchmarkFileStorage_Read(b *testing.B) {
 
 	_ = utils.SetRLimit(1024 * 1024)
 
-	storage := NewFileStorage(&serverconfigs.HTTPCachePolicy{
+	var storage = NewFileStorage(&serverconfigs.HTTPCachePolicy{
 		Id:   1,
 		IsOn: true,
 		Options: map[string]interface{}{
 			"dir": Tea.Root + "/caches",
 		},
 	})
+
+	defer storage.Stop()
+
 	err := storage.Init()
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < b.N; i++ {
-		reader, err := storage.OpenReader("my-key")
+		reader, err := storage.OpenReader("my-key", false, false)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -515,5 +691,18 @@ func BenchmarkFileStorage_Read(b *testing.B) {
 			return true, nil
 		})
 		_ = reader.Close()
+	}
+}
+
+func BenchmarkFileStorage_KeyPath(b *testing.B) {
+	runtime.GOMAXPROCS(1)
+
+	var storage = &FileStorage{
+		options: &serverconfigs.HTTPFileCacheStorage{},
+		policy:  &serverconfigs.HTTPCachePolicy{Id: 1},
+	}
+
+	for i := 0; i < b.N; i++ {
+		_, _, _ = storage.keyPath(strconv.Itoa(i))
 	}
 }

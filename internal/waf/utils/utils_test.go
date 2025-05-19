@@ -1,4 +1,4 @@
-package utils
+package utils_test
 
 import (
 	"net/http"
@@ -8,24 +8,33 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
+	"github.com/iwind/TeaGo/rands"
 )
 
 func TestMatchStringCache(t *testing.T) {
-	regex := regexp.MustCompile(`\d+`)
-	t.Log(MatchStringCache(regex, "123"))
-	t.Log(MatchStringCache(regex, "123"))
-	t.Log(MatchStringCache(regex, "123"))
+	regex := re.MustCompile(`\d+`)
+	t.Log(utils.MatchStringCache(regex, "123", utils.CacheShortLife))
+	t.Log(utils.MatchStringCache(regex, "123", utils.CacheShortLife))
+	t.Log(utils.MatchStringCache(regex, "123", utils.CacheShortLife))
 }
 
 func TestMatchBytesCache(t *testing.T) {
-	regex := regexp.MustCompile(`\d+`)
-	t.Log(MatchBytesCache(regex, []byte("123")))
-	t.Log(MatchBytesCache(regex, []byte("123")))
-	t.Log(MatchBytesCache(regex, []byte("123")))
+	regex := re.MustCompile(`\d+`)
+	t.Log(utils.MatchBytesCache(regex, []byte("123"), utils.CacheShortLife))
+	t.Log(utils.MatchBytesCache(regex, []byte("123"), utils.CacheShortLife))
+	t.Log(utils.MatchBytesCache(regex, []byte("123"), utils.CacheShortLife))
 }
 
 func TestMatchRemoteCache(t *testing.T) {
-	client := http.Client{}
+	if !testutils.IsSingleTesting() {
+		return
+	}
+
+	var client = http.Client{}
 	for i := 0; i < 200_0000; i++ {
 		req, err := http.NewRequest(http.MethodGet, "http://192.168.2.30:8882/?arg="+strconv.Itoa(i), nil)
 		if err != nil {
@@ -51,21 +60,43 @@ func TestMatchBytesCache_WithoutCache(t *testing.T) {
 func BenchmarkMatchStringCache(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	data := strings.Repeat("HELLO", 512)
-	regex := regexp.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
-	_ = MatchStringCache(regex, data)
+	var data = strings.Repeat("HELLO", 128)
+	var regex = re.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
+	//b.Log(regex.Keywords())
+	_ = utils.MatchStringCache(regex, data, utils.CacheShortLife)
 
 	for i := 0; i < b.N; i++ {
-		_ = MatchStringCache(regex, data)
+		_ = utils.MatchStringCache(regex, data, utils.CacheShortLife)
+	}
+}
+
+func BenchmarkMatchStringCache_LowHit(b *testing.B) {
+	runtime.GOMAXPROCS(1)
+
+	var regex = re.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
+	//b.Log(regex.Keywords())
+
+	for i := 0; i < b.N; i++ {
+		var data = strings.Repeat("A", rands.Int(0, 100))
+		_ = utils.MatchStringCache(regex, data, utils.CacheShortLife)
 	}
 }
 
 func BenchmarkMatchStringCache_WithoutCache(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	data := strings.Repeat("HELLO", 512)
-	regex := regexp.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
+	data := strings.Repeat("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", 8)
+	regex := re.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
+	for i := 0; i < b.N; i++ {
+		_ = regex.MatchString(data)
+	}
+}
 
+func BenchmarkMatchStringCache_WithoutCache2(b *testing.B) {
+	runtime.GOMAXPROCS(1)
+
+	data := strings.Repeat("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36", 8)
+	regex := regexp.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
 	for i := 0; i < b.N; i++ {
 		_ = regex.MatchString(data)
 	}
@@ -74,8 +105,8 @@ func BenchmarkMatchStringCache_WithoutCache(b *testing.B) {
 func BenchmarkMatchBytesCache_WithoutCache(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	data := []byte(strings.Repeat("HELLO", 512))
-	regex := regexp.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
+	data := []byte(strings.Repeat("HELLO", 128))
+	regex := re.MustCompile(`(?iU)\b(eval|system|exec|execute|passthru|shell_exec|phpinfo)\b`)
 
 	for i := 0; i < b.N; i++ {
 		_ = regex.Match(data)

@@ -1,14 +1,21 @@
 package iplibrary
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 )
 
 func TestIPTablesAction_AddItem(t *testing.T) {
-	action := NewIPTablesAction()
+	_, lookupErr := executils.LookPath("iptables")
+	if lookupErr != nil {
+		return
+	}
+
+	var action = NewIPTablesAction()
 	action.config = &firewallconfigs.FirewallActionIPTablesConfig{
 		Path: "/usr/bin/iptables",
 	}
@@ -40,7 +47,12 @@ func TestIPTablesAction_AddItem(t *testing.T) {
 }
 
 func TestIPTablesAction_DeleteItem(t *testing.T) {
-	action := NewIPTablesAction()
+	_, lookupErr := executils.LookPath("firewalld")
+	if lookupErr != nil {
+		return
+	}
+
+	var action = NewIPTablesAction()
 	action.config = &firewallconfigs.FirewallActionIPTablesConfig{
 		Path: "/usr/bin/firewalld",
 	}

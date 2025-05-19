@@ -1,9 +1,10 @@
 package nodes
 
 import (
+	"testing"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
-	"testing"
 )
 
 func TestListenerManager_Listen(t *testing.T) {

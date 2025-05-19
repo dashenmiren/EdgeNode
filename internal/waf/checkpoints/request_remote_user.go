@@ -2,6 +2,7 @@ package checkpoints
 
 import (
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 )
 
@@ -9,8 +10,8 @@ type RequestRemoteUserCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestRemoteUserCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
-	username, _, ok := req.BasicAuth()
+func (this *RequestRemoteUserCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+	username, _, ok := req.WAFRaw().BasicAuth()
 	if !ok {
 		value = ""
 		return
@@ -19,9 +20,13 @@ func (this *RequestRemoteUserCheckpoint) RequestValue(req *requests.Request, par
 	return
 }
 
-func (this *RequestRemoteUserCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+func (this *RequestRemoteUserCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options)
+		return this.RequestValue(req, param, options, ruleId)
 	}
 	return
+}
+
+func (this *RequestRemoteUserCheckpoint) CacheLife() utils.CacheLife {
+	return utils.CacheMiddleLife
 }

@@ -1,13 +1,14 @@
 package iplibrary
 
 import (
+	"testing"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"github.com/iwind/TeaGo/maps"
-	"testing"
 )
 
 func TestActionManager_UpdateActions(t *testing.T) {
-	manager := NewActionManager()
+	var manager = NewActionManager()
 	manager.UpdateActions([]*firewallconfigs.FirewallActionConfig{
 		{
 			Id:   1,
@@ -37,10 +38,9 @@ func TestActionManager_UpdateActions(t *testing.T) {
 			},
 		},
 		{
-			Id:   2,
-			Type: "iptables",
-			Params: maps.Map{
-			},
+			Id:     2,
+			Type:   "iptables",
+			Params: maps.Map{},
 		},
 	})
 

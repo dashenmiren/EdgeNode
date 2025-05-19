@@ -1,16 +1,34 @@
-package events
+package events_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/events"
+)
 
 func TestOn(t *testing.T) {
-	On("hello", func() {
+	type User struct {
+		name string
+	}
+	var u = &User{name: "lily"}
+	var u2 = &User{name: "lucy"}
+
+	events.On("hello", func() {
 		t.Log("world")
 	})
-	On("hello", func() {
+	events.On("hello", func() {
 		t.Log("world2")
 	})
-	On("hello2", func() {
+	events.OnKey("hello", u, func() {
+		t.Log("world3")
+	})
+	events.OnKey("hello", u, func() {
+		t.Log("world4")
+	})
+	events.Remove(u)
+	events.Remove(u2)
+	events.OnKey("hello2", nil, func() {
 		t.Log("world2")
 	})
-	Notify("hello")
+	events.Notify("hello")
 }

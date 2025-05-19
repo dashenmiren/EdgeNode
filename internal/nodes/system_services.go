@@ -4,31 +4,39 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
+	"runtime"
+	"time"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/nodeconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/utils"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 	"github.com/iwind/TeaGo/maps"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"runtime"
-	"time"
 )
 
 func init() {
+	if !teaconst.IsMain {
+		return
+	}
+
 	var manager = NewSystemServiceManager()
 	events.On(events.EventReload, func() {
-		err := manager.Setup()
-		if err != nil {
-			remotelogs.Error("SYSTEM_SERVICE", "setup system services failed: "+err.Error())
-		}
+		goman.New(func() {
+			err := manager.Setup()
+			if err != nil {
+				remotelogs.Error("SYSTEM_SERVICE", "setup system services failed: "+err.Error())
+			}
+		})
 	})
 }
 
-// 系统服务管理
+// SystemServiceManager 系统服务管理
 type SystemServiceManager struct {
+	lastIsOn int // -1, 0, 1
 }
 
 func NewSystemServiceManager() *SystemServiceManager {
@@ -68,56 +76,75 @@ func (this *SystemServiceManager) setupSystemd(params maps.Map) error {
 	if err != nil {
 		return err
 	}
-	config := &nodeconfigs.SystemdServiceConfig{}
+
+	var config = &nodeconfigs.SystemdServiceConfig{}
 	err = json.Unmarshal(data, config)
 	if err != nil {
 		return err
 	}
 
 	// 检查当前的service
-	systemctl, err := exec.LookPath("systemctl")
+	systemctl, err := executils.LookPath("systemctl")
 	if err != nil {
 		return err
 	}
 	if len(systemctl) == 0 {
 		return errors.New("can not find 'systemctl' on the system")
 	}
-	cmd := utils.NewCommandExecutor()
-	shortName := teaconst.SystemdServiceName
-	cmd.Add(systemctl, "is-enabled", shortName)
-	output, err := cmd.Run()
-	if err != nil {
-		return err
+
+	// 记录上次状态
+	var isOnInt int
+	if config.IsOn {
+		isOnInt = 1
+	} else {
+		isOnInt = 0
 	}
+
+	if this.lastIsOn == isOnInt {
+		return nil
+	}
+	defer func() {
+		this.lastIsOn = isOnInt
+	}()
+
+	var shortName = teaconst.SystemdServiceName
+	var cmd = executils.NewTimeoutCmd(10*time.Second, systemctl, "is-enabled", shortName)
+	cmd.WithStdout()
+	err = cmd.Run()
+	var hasInstalled = err == nil
 	if config.IsOn {
 		exe, err := os.Executable()
 		if err != nil {
 			return err
 		}
 
-		// 启动Service
-		go func() {
-			time.Sleep(5 * time.Second)
-			_ = exec.Command(systemctl, "start", teaconst.SystemdServiceName).Start()
-		}()
-
-		if output == "enabled" {
-			// 检查文件路径是否变化
-			data, err := ioutil.ReadFile("/etc/systemd/system/" + teaconst.SystemdServiceName + ".service")
+		// 检查文件路径是否变化
+		if hasInstalled && cmd.Stdout() == "enabled" {
+			data, err := os.ReadFile("/etc/systemd/system/" + teaconst.SystemdServiceName + ".service")
 			if err == nil && bytes.Index(data, []byte(exe)) > 0 {
 				return nil
 			}
 		}
-		manager := utils.NewServiceManager(shortName, teaconst.ProductName)
+
+		// 安装服务
+		var manager = utils.NewServiceManager(shortName, teaconst.ProductName)
 		err = manager.Install(exe, []string{})
 		if err != nil {
 			return err
 		}
+
+		// 启动服务
+		goman.New(func() {
+			time.Sleep(5 * time.Second)
+			_ = executils.NewTimeoutCmd(30*time.Second, systemctl, "start", teaconst.SystemdServiceName).Start()
+		})
 	} else {
-		manager := utils.NewServiceManager(shortName, teaconst.ProductName)
-		err = manager.Uninstall()
-		if err != nil {
-			return err
+		if hasInstalled {
+			var manager = utils.NewServiceManager(shortName, teaconst.ProductName)
+			err = manager.Uninstall()
+			if err != nil {
+				return err
+			}
 		}
 	}
 

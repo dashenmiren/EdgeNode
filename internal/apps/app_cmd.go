@@ -1,29 +1,42 @@
 package apps
 
 import (
+	"errors"
 	"fmt"
-	"github.com/iwind/TeaGo/Tea"
-	"github.com/iwind/TeaGo/logs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
+	"syscall"
 	"time"
+
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
+	"github.com/iwind/TeaGo/logs"
+	"github.com/iwind/TeaGo/maps"
+	"github.com/iwind/TeaGo/types"
+	"github.com/iwind/gosock/pkg/gosock"
 )
 
-// App命令帮助
+// AppCmd App命令帮助
 type AppCmd struct {
 	product       string
 	version       string
-	usage         string
+	usages        []string
 	options       []*CommandHelpOption
 	appendStrings []string
 
 	directives []*Directive
+
+	sock *gosock.Sock
 }
 
 func NewAppCmd() *AppCmd {
-	return &AppCmd{}
+	return &AppCmd{
+		sock: gosock.NewTmpSock(teaconst.ProcessName),
+	}
 }
 
 type CommandHelpOption struct {
@@ -31,25 +44,25 @@ type CommandHelpOption struct {
 	Description string
 }
 
-// 产品
+// Product 产品
 func (this *AppCmd) Product(product string) *AppCmd {
 	this.product = product
 	return this
 }
 
-// 版本
+// Version 版本
 func (this *AppCmd) Version(version string) *AppCmd {
 	this.version = version
 	return this
 }
 
-// 使用方法
+// Usage 使用方法
 func (this *AppCmd) Usage(usage string) *AppCmd {
-	this.usage = usage
+	this.usages = append(this.usages, usage)
 	return this
 }
 
-// 选项
+// Option 选项
 func (this *AppCmd) Option(code string, description string) *AppCmd {
 	this.options = append(this.options, &CommandHelpOption{
 		Code:        code,
@@ -58,25 +71,27 @@ func (this *AppCmd) Option(code string, description string) *AppCmd {
 	return this
 }
 
-// 附加内容
+// Append 附加内容
 func (this *AppCmd) Append(appendString string) *AppCmd {
 	this.appendStrings = append(this.appendStrings, appendString)
 	return this
 }
 
-// 打印
+// Print 打印
 func (this *AppCmd) Print() {
 	fmt.Println(this.product + " v" + this.version)
 
-	usage := this.usage
-	fmt.Println("Usage:", "\n   "+usage)
+	fmt.Println("Usage:")
+	for _, usage := range this.usages {
+		fmt.Println("   " + usage)
+	}
 
 	if len(this.options) > 0 {
 		fmt.Println("")
 		fmt.Println("Options:")
 
-		spaces := 20
-		max := 40
+		var spaces = 20
+		var max = 40
 		for _, option := range this.options {
 			l := len(option.Code)
 			if l < max && l > spaces {
@@ -103,7 +118,7 @@ func (this *AppCmd) Print() {
 	}
 }
 
-// 添加指令
+// On 添加指令
 func (this *AppCmd) On(arg string, callback func()) {
 	this.directives = append(this.directives, &Directive{
 		Arg:      arg,
@@ -111,12 +126,15 @@ func (this *AppCmd) On(arg string, callback func()) {
 	})
 }
 
-// 运行
+// Run 运行
 func (this *AppCmd) Run(main func()) {
 	// 获取参数
-	args := os.Args[1:]
+	var args = os.Args[1:]
 	if len(args) > 0 {
-		switch args[0] {
+		var mainArg = args[0]
+		this.callDirective(mainArg + ":before")
+
+		switch mainArg {
 		case "-v", "version", "-version", "--version":
 			this.runVersion()
 			return
@@ -139,19 +157,19 @@ func (this *AppCmd) Run(main func()) {
 
 		// 查找指令
 		for _, directive := range this.directives {
-			if directive.Arg == args[0] {
+			if directive.Arg == mainArg {
 				directive.Callback()
 				return
 			}
 		}
 
-		fmt.Println("unknown command '" + args[0] + "'")
+		fmt.Println("unknown command '" + mainArg + "'")
 
 		return
 	}
 
 	// 日志
-	writer := new(LogWriter)
+	var writer = new(LogWriter)
 	writer.Init()
 	logs.SetWriter(writer)
 
@@ -161,7 +179,7 @@ func (this *AppCmd) Run(main func()) {
 
 // 版本号
 func (this *AppCmd) runVersion() {
-	fmt.Println(this.product+" v"+this.version, "(build: "+runtime.Version(), runtime.GOOS, runtime.GOARCH+")")
+	fmt.Println(this.product+" v"+this.version, "(build: "+runtime.Version(), runtime.GOOS, runtime.GOARCH, teaconst.Tag+")")
 }
 
 // 帮助
@@ -171,36 +189,55 @@ func (this *AppCmd) runHelp() {
 
 // 启动
 func (this *AppCmd) runStart() {
-	proc := this.checkPid()
-	if proc != nil {
-		fmt.Println(this.product+" already started, pid:", proc.Pid)
+	var pid = this.getPID()
+	if pid > 0 {
+		fmt.Println(this.product+" already started, pid:", pid)
 		return
 	}
 
-	cmd := exec.Command(os.Args[0])
+	_ = os.Setenv("EdgeBackground", "on")
+
+	var cmd = exec.Command(this.exe())
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Foreground: false,
+		Setsid:     true,
+	}
+
 	err := cmd.Start()
 	if err != nil {
 		fmt.Println(this.product+"  start failed:", err.Error())
 		return
 	}
 
+	// create symbolic links
+	_ = this.createSymLinks()
+
 	fmt.Println(this.product+" started ok, pid:", cmd.Process.Pid)
 }
 
 // 停止
 func (this *AppCmd) runStop() {
-	proc := this.checkPid()
-	if proc == nil {
+	var pid = this.getPID()
+	if pid == 0 {
 		fmt.Println(this.product + " not started yet")
 		return
 	}
 
-	// 停止进程
-	_ = proc.Kill()
+	// 从systemd中停止
+	if runtime.GOOS == "linux" {
+		systemctl, _ := executils.LookPath("systemctl")
+		if len(systemctl) > 0 {
+			go func() {
+				// 有可能会长时间执行，这里不阻塞进程
+				_ = exec.Command(systemctl, "stop", teaconst.SystemdServiceName).Run()
+			}()
+		}
+	}
 
-	// 在Windows上经常不能及时释放资源
-	_ = DeletePid(Tea.Root + "/bin/pid")
-	fmt.Println(this.product+" stopped ok, pid:", proc.Pid)
+	// 如果仍在运行，则发送停止指令
+	_, _ = this.sock.SendTimeout(&gosock.Command{Code: "stop"}, 1*time.Second)
+
+	fmt.Println(this.product+" stopped ok, pid:", types.String(pid))
 }
 
 // 重启
@@ -212,15 +249,106 @@ func (this *AppCmd) runRestart() {
 
 // 状态
 func (this *AppCmd) runStatus() {
-	proc := this.checkPid()
-	if proc == nil {
+	var pid = this.getPID()
+	if pid == 0 {
 		fmt.Println(this.product + " not started yet")
-	} else {
-		fmt.Println(this.product + " is running, pid: " + fmt.Sprintf("%d", proc.Pid))
+		return
 	}
+
+	fmt.Println(this.product + " is running, pid: " + types.String(pid))
 }
 
-// 检查PID
-func (this *AppCmd) checkPid() *os.Process {
-	return CheckPid(Tea.Root + "/bin/pid")
+// 获取当前的PID
+func (this *AppCmd) getPID() int {
+	if !this.sock.IsListening() {
+		return 0
+	}
+
+	reply, err := this.sock.Send(&gosock.Command{Code: "pid"})
+	if err != nil {
+		return 0
+	}
+	return maps.NewMap(reply.Params).GetInt("pid")
+}
+
+// ParseOptions 分析参数中的选项
+func (this *AppCmd) ParseOptions(args []string) map[string][]string {
+	var result = map[string][]string{}
+	for _, arg := range args {
+		var pieces = strings.SplitN(arg, "=", 2)
+		var key = strings.TrimLeft(pieces[0], "- ")
+		key = strings.TrimSpace(key)
+		var value = ""
+		if len(pieces) == 2 {
+			value = strings.TrimSpace(pieces[1])
+		}
+		result[key] = append(result[key], value)
+	}
+	return result
+}
+
+func (this *AppCmd) exe() string {
+	var exe, _ = os.Executable()
+	if len(exe) == 0 {
+		exe = os.Args[0]
+	}
+	return exe
+}
+
+// 创建软链接
+func (this *AppCmd) createSymLinks() error {
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+
+	var exe, _ = os.Executable()
+	if len(exe) == 0 {
+		return nil
+	}
+
+	var errorList = []string{}
+
+	// bin
+	{
+		var target = "/usr/bin/" + teaconst.ProcessName
+		old, _ := filepath.EvalSymlinks(target)
+		if old != exe {
+			_ = os.Remove(target)
+			err := os.Symlink(exe, target)
+			if err != nil {
+				errorList = append(errorList, err.Error())
+			}
+		}
+	}
+
+	// log
+	{
+		var realPath = filepath.Dir(filepath.Dir(exe)) + "/logs/run.log"
+		var target = "/var/log/" + teaconst.ProcessName + ".log"
+		old, _ := filepath.EvalSymlinks(target)
+		if old != realPath {
+			_ = os.Remove(target)
+			err := os.Symlink(realPath, target)
+			if err != nil {
+				errorList = append(errorList, err.Error())
+			}
+		}
+	}
+
+	if len(errorList) > 0 {
+		return errors.New(strings.Join(errorList, "\n"))
+	}
+
+	return nil
+}
+
+func (this *AppCmd) callDirective(code string) {
+	for _, directive := range this.directives {
+		if directive.Arg == code {
+			if directive.Callback != nil {
+				directive.Callback()
+			}
+			return
+		}
+	}
 }

@@ -1,23 +1,30 @@
 package iplibrary
 
 import (
-	"bytes"
-	"errors"
+	"fmt"
+	"runtime"
+	"strings"
+	"time"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"os/exec"
-	"runtime"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	executils "github.com/dashenmiren/EdgeNode/internal/utils/exec"
 )
 
-// IPTables动作
+// IPTablesAction IPTables动作
 // 相关命令：
-//   iptables -A INPUT -s "192.168.2.32" -j ACCEPT
-//   iptables -A INPUT -s "192.168.2.32" -j REJECT
-//   iptables -D ...
+//
+//	iptables -A INPUT -s "192.168.2.32" -j ACCEPT
+//	iptables -A INPUT -s "192.168.2.32" -j REJECT
+//	iptables -D INPUT ...
+//	iptables -F INPUT
 type IPTablesAction struct {
 	BaseAction
 
 	config *firewallconfigs.FirewallActionIPTablesConfig
+
+	iptablesNotFound bool
 }
 
 func NewIPTablesAction() *IPTablesAction {
@@ -68,16 +75,27 @@ func (this *IPTablesAction) runAction(action string, listType IPListType, item *
 }
 
 func (this *IPTablesAction) runActionSingleIP(action string, listType IPListType, item *pb.IPItem) error {
+	// 暂时不支持ipv6
+	// TODO 将来支持ipv6
+	if utils.IsIPv6(item.IpFrom) {
+		return nil
+	}
+
 	if item.Type == "all" {
 		return nil
 	}
-	path := this.config.Path
+	var path = this.config.Path
 	var err error
 	if len(path) == 0 {
-		path, err = exec.LookPath("iptables")
+		path, err = executils.LookPath("iptables")
 		if err != nil {
+			if this.iptablesNotFound {
+				return nil
+			}
+			this.iptablesNotFound = true
 			return err
 		}
+		this.config.Path = path
 	}
 	iptablesAction := ""
 	switch action {
@@ -103,16 +121,15 @@ func (this *IPTablesAction) runActionSingleIP(action string, listType IPListType
 		return nil
 	}
 
-	cmd := exec.Command(path, args...)
-	stderr := bytes.NewBuffer([]byte{})
-	cmd.Stderr = stderr
+	var cmd = executils.NewTimeoutCmd(30*time.Second, path, args...)
+	cmd.WithStderr()
 	err = cmd.Run()
 	if err != nil {
-		output := stderr.Bytes()
-		if bytes.Contains(output, []byte("No chain/target/match")) {
+		var output = cmd.Stderr()
+		if strings.Contains(output, "No chain/target/match") {
 			err = nil
 		} else {
-			return errors.New(err.Error() + ", output: " + string(output))
+			return fmt.Errorf("%w, output: %s", err, output)
 		}
 	}
 	return nil

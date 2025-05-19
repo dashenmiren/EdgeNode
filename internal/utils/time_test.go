@@ -1,13 +1,16 @@
-package utils
+package utils_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
-func TestUnixTime(t *testing.T) {
-	for i := 0; i < 5; i++ {
-		t.Log(UnixTime(), "real:", time.Now().Unix())
-		time.Sleep(1 * time.Second)
-	}
+func TestGMTUnixTime(t *testing.T) {
+	t.Log(utils.GMTUnixTime(time.Now().Unix()))
+}
+
+func TestGMTTime(t *testing.T) {
+	t.Log(utils.GMTTime(time.Now()))
 }

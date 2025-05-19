@@ -3,23 +3,40 @@ package nodes
 import (
 	"crypto/tls"
 	"errors"
+	"net"
+	"strings"
+	"sync/atomic"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
+	"github.com/dashenmiren/EdgeNode/internal/goman"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/dashenmiren/EdgeNode/internal/stats"
-	"net"
-	"sync/atomic"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/iwind/TeaGo/types"
+	"github.com/pires/go-proxyproto"
 )
 
 type TCPListener struct {
 	BaseListener
 
 	Listener net.Listener
+
+	port int
 }
 
 func (this *TCPListener) Serve() error {
-	listener := this.Listener
+	var listener = this.Listener
 	if this.Group.IsTLS() {
 		listener = tls.NewListener(listener, this.buildTLSConfig())
+	}
+
+	// 获取分组端口
+	var groupAddr = this.Group.Addr()
+	var portIndex = strings.LastIndex(groupAddr, ":")
+	if portIndex >= 0 {
+		var port = groupAddr[portIndex+1:]
+		this.port = types.Int(port)
 	}
 
 	for {
@@ -31,9 +48,13 @@ func (this *TCPListener) Serve() error {
 		atomic.AddInt64(&this.countActiveConnections, 1)
 
 		go func(conn net.Conn) {
-			err = this.handleConn(conn)
+			var server = this.Group.FirstServer()
+			if server == nil {
+				return
+			}
+			err = this.handleConn(server, conn)
 			if err != nil {
-				remotelogs.Error("TCP_LISTENER", err.Error())
+				remotelogs.ServerError(server.Id, "TCP_LISTENER", err.Error(), "", nil)
 			}
 			atomic.AddInt64(&this.countActiveConnections, -1)
 		}(conn)
@@ -42,21 +63,92 @@ func (this *TCPListener) Serve() error {
 	return nil
 }
 
-func (this *TCPListener) Reload(group *serverconfigs.ServerGroup) {
+func (this *TCPListener) Reload(group *serverconfigs.ServerAddressGroup) {
 	this.Group = group
 	this.Reset()
 }
 
-func (this *TCPListener) handleConn(conn net.Conn) error {
-	firstServer := this.Group.FirstServer()
-	if firstServer == nil {
+func (this *TCPListener) handleConn(server *serverconfigs.ServerConfig, conn net.Conn) error {
+	if server == nil {
 		return errors.New("no server available")
 	}
-	if firstServer.ReverseProxy == nil {
+	if server.ReverseProxy == nil {
 		return errors.New("no ReverseProxy configured for the server")
 	}
-	originConn, err := this.connectOrigin(firstServer.ReverseProxy, conn.RemoteAddr().String())
+
+	// 绑定连接和服务
+	clientConn, ok := conn.(ClientConnInterface)
+	if ok {
+		var goNext = clientConn.SetServerId(server.Id)
+		if !goNext {
+			return nil
+		}
+		clientConn.SetUserId(server.UserId)
+
+		var userPlanId int64
+		if server.UserPlan != nil && server.UserPlan.Id > 0 {
+			userPlanId = server.UserPlan.Id
+		}
+		clientConn.SetUserPlanId(userPlanId)
+	} else {
+		tlsConn, ok := conn.(*tls.Conn)
+		if ok {
+			var internalConn = tlsConn.NetConn()
+			if internalConn != nil {
+				clientConn, ok = internalConn.(ClientConnInterface)
+				if ok {
+					var goNext = clientConn.SetServerId(server.Id)
+					if !goNext {
+						return nil
+					}
+					clientConn.SetUserId(server.UserId)
+
+					var userPlanId int64
+					if server.UserPlan != nil && server.UserPlan.Id > 0 {
+						userPlanId = server.UserPlan.Id
+					}
+					clientConn.SetUserPlanId(userPlanId)
+				}
+			}
+		}
+	}
+
+	// 是否已达到流量限制
+	if this.reachedTrafficLimit() || (server.UserId > 0 && !SharedUserManager.CheckUserServersIsEnabled(server.UserId)) {
+		// 关闭连接
+		tcpConn, ok := conn.(LingerConn)
+		if ok {
+			_ = tcpConn.SetLinger(0)
+		}
+		_ = conn.Close()
+
+		// TODO 使用系统防火墙drop当前端口的数据包一段时间（1分钟）
+		// 不能使用阻止IP的方法，因为边缘节点只上有可能还有别的代理服务
+
+		return nil
+	}
+
+	// 记录域名排行
+	tlsConn, ok := conn.(*tls.Conn)
+	var recordStat = false
+	var serverName = ""
+	if ok {
+		serverName = tlsConn.ConnectionState().ServerName
+		if len(serverName) > 0 {
+			// 统计
+			stats.SharedTrafficStatManager.Add(server.UserId, server.Id, serverName, 0, 0, 1, 0, 0, 0, 0, server.ShouldCheckTrafficLimit(), server.PlanId())
+			recordStat = true
+		}
+	}
+
+	// 统计
+	if !recordStat {
+		stats.SharedTrafficStatManager.Add(server.UserId, server.Id, "", 0, 0, 1, 0, 0, 0, 0, server.ShouldCheckTrafficLimit(), server.PlanId())
+	}
+
+	originConn, err := this.connectOrigin(server.Id, serverName, server.ReverseProxy, conn.RemoteAddr().String())
 	if err != nil {
+		_ = conn.Close()
 		return err
 	}
 
@@ -65,10 +157,35 @@ func (this *TCPListener) handleConn(conn net.Conn) error {
 		_ = originConn.Close()
 	}
 
-	go func() {
-		originBuffer := bytePool32k.Get()
+	// PROXY Protocol
+	if server.ReverseProxy != nil &&
+		server.ReverseProxy.ProxyProtocol != nil &&
+		server.ReverseProxy.ProxyProtocol.IsOn &&
+		(server.ReverseProxy.ProxyProtocol.Version == serverconfigs.ProxyProtocolVersion1 || server.ReverseProxy.ProxyProtocol.Version == serverconfigs.ProxyProtocolVersion2) {
+		var remoteAddr = conn.RemoteAddr()
+		var transportProtocol = proxyproto.TCPv4
+		if strings.Contains(remoteAddr.String(), "[") {
+			transportProtocol = proxyproto.TCPv6
+		}
+		var header = proxyproto.Header{
+			Version:           byte(server.ReverseProxy.ProxyProtocol.Version),
+			Command:           proxyproto.PROXY,
+			TransportProtocol: transportProtocol,
+			SourceAddr:        remoteAddr,
+			DestinationAddr:   conn.LocalAddr(),
+		}
+		_, err = header.WriteTo(originConn)
+		if err != nil {
+			closer()
+			return err
+		}
+	}
+
+	// 从源站读取
+	goman.New(func() {
+		var originBuffer = utils.BytePool16k.Get()
 		defer func() {
-			bytePool32k.Put(originBuffer)
+			utils.BytePool16k.Put(originBuffer)
 		}()
 		for {
 			n, err := originConn.Read(originBuffer)
@@ -80,20 +197,29 @@ func (this *TCPListener) handleConn(conn net.Conn) error {
 				}
 
 				// 记录流量
-				stats.SharedTrafficStatManager.Add(firstServer.Id, int64(n), 0, 0, 0)
+				if server != nil {
+					stats.SharedTrafficStatManager.Add(server.UserId, server.Id, "", int64(n), 0, 0, 0, 0, 0, 0, server.ShouldCheckTrafficLimit(), server.PlanId())
+				}
 			}
 			if err != nil {
 				closer()
 				break
 			}
 		}
-	}()
+	})
 
-	clientBuffer := bytePool32k.Get()
+	// 从客户端读取
+	var clientBuffer = utils.BytePool16k.Get()
 	defer func() {
-		bytePool32k.Put(clientBuffer)
+		utils.BytePool16k.Put(clientBuffer)
 	}()
 	for {
+		// 是否已达到流量限制
+		if this.reachedTrafficLimit() {
+			closer()
+			return nil
+		}
+
 		n, err := conn.Read(clientBuffer)
 		if n > 0 {
 			_, err = originConn.Write(clientBuffer[:n])
@@ -116,25 +242,72 @@ func (this *TCPListener) Close() error {
 	return this.Listener.Close()
 }
 
-func (this *TCPListener) connectOrigin(reverseProxy *serverconfigs.ReverseProxyConfig, remoteAddr string) (conn net.Conn, err error) {
+// 连接源站
+func (this *TCPListener) connectOrigin(serverId int64, requestHost string, reverseProxy *serverconfigs.ReverseProxyConfig, remoteAddr string) (conn net.Conn, err error) {
 	if reverseProxy == nil {
 		return nil, errors.New("no reverse proxy config")
 	}
 
-	retries := 3
+	var requestCall = shared.NewRequestCall()
+	requestCall.Domain = requestHost
+
+	var retries = 3
+	var addr string
+
+	var failedOriginIds []int64
+
 	for i := 0; i < retries; i++ {
-		origin := reverseProxy.NextOrigin(nil)
+		var origin *serverconfigs.OriginConfig
+		if len(failedOriginIds) > 0 {
+			origin = reverseProxy.AnyOrigin(requestCall, failedOriginIds)
+		}
+		if origin == nil {
+			origin = reverseProxy.NextOrigin(requestCall)
+		}
 		if origin == nil {
 			continue
 		}
-		conn, err = OriginConnect(origin, remoteAddr)
+
+		// 回源主机名
+		if len(origin.RequestHost) > 0 {
+			requestHost = origin.RequestHost
+		} else if len(reverseProxy.RequestHost) > 0 {
+			requestHost = reverseProxy.RequestHost
+		}
+
+		conn, addr, err = OriginConnect(origin, this.port, remoteAddr, requestHost)
 		if err != nil {
-			remotelogs.Error("TCP_LISTENER", "unable to connect origin: "+origin.Addr.Host+":"+origin.Addr.PortRange+": "+err.Error())
+			failedOriginIds = append(failedOriginIds, origin.Id)
+
+			remotelogs.ServerError(serverId, "TCP_LISTENER", "unable to connect origin server: "+addr+": "+err.Error(), "", nil)
+
+			SharedOriginStateManager.Fail(origin, requestHost, reverseProxy, func() {
+				reverseProxy.ResetScheduling()
+			})
+
 			continue
 		} else {
+			if !origin.IsOk {
+				SharedOriginStateManager.Success(origin, func() {
+					reverseProxy.ResetScheduling()
+				})
+			}
+
 			return
 		}
 	}
-	err = errors.New("no origin can be used")
+
+	if err == nil {
+		err = errors.New("server '" + types.String(serverId) + "': no available origin server can be used")
+	}
 	return
+}
+
+// 检查是否已经达到流量限制
+func (this *TCPListener) reachedTrafficLimit() bool {
+	var server = this.Group.FirstServer()
+	if server == nil {
+		return true
+	}
+	return server.TrafficLimitStatus != nil && server.TrafficLimitStatus.IsValid()
 }

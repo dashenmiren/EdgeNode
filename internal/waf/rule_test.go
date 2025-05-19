@@ -1,13 +1,14 @@
 package waf
 
 import (
+	"net/http"
+	"net/url"
+	"testing"
+
 	"github.com/dashenmiren/EdgeNode/internal/waf/checkpoints"
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/maps"
-	"net/http"
-	"net/url"
-	"testing"
 )
 
 func TestRule_Init_Single(t *testing.T) {
@@ -25,7 +26,7 @@ func TestRule_Init_Single(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	t.Log(rule.MatchRequest(req))
 }
 
@@ -44,15 +45,15 @@ func TestRule_Init_Composite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	t.Log(rule.MatchRequest(req))
 }
 
 func TestRule_Test(t *testing.T) {
-	a := assert.NewAssertion(t)
+	var a = assert.NewAssertion(t)
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorGt
 		rule.Value = "123"
 		err := rule.Init()
@@ -66,7 +67,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorGte
 		rule.Value = "123"
 		err := rule.Init()
@@ -79,7 +80,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorLt
 		rule.Value = "123"
 		err := rule.Init()
@@ -92,7 +93,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorLte
 		rule.Value = "123"
 		err := rule.Init()
@@ -105,7 +106,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorEq
 		rule.Value = "123"
 		err := rule.Init()
@@ -118,7 +119,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNeq
 		rule.Value = "123"
 		err := rule.Init()
@@ -131,7 +132,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorEqString
 		rule.Value = "123"
 		err := rule.Init()
@@ -144,7 +145,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorEqString
 		rule.Value = "abc"
 		err := rule.Init()
@@ -156,7 +157,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorEqString
 		rule.IsCaseInsensitive = true
 		rule.Value = "abc"
@@ -169,7 +170,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNeqString
 		rule.Value = "abc"
 		err := rule.Init()
@@ -182,7 +183,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNeqString
 		rule.IsCaseInsensitive = true
 		rule.Value = "abc"
@@ -194,7 +195,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorMatch
 		rule.Value = "^\\d+"
 		err := rule.Init()
@@ -206,7 +207,31 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
+		rule.Operator = RuleOperatorMatch
+		rule.Value = "^\\d+"
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsTrue(rule.Test([]byte("123")))
+		a.IsFalse(rule.Test([]byte("abc123")))
+	}
+
+	{
+		var rule = NewRule()
+		rule.Operator = RuleOperatorMatch
+		rule.Value = "^\\d+"
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsTrue(rule.Test([][]byte{[]byte("123"), []byte("456")}))
+		a.IsFalse(rule.Test([][]byte{[]byte("abc123")}))
+	}
+
+	{
+		var rule = NewRule()
 		rule.Operator = RuleOperatorMatch
 		rule.Value = "abc"
 		rule.IsCaseInsensitive = true
@@ -218,7 +243,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorMatch
 		rule.Value = "^\\d+"
 		err := rule.Init()
@@ -230,7 +255,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNotMatch
 		rule.Value = "\\d+"
 		err := rule.Init()
@@ -242,7 +267,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNotMatch
 		rule.Value = "abc"
 		rule.IsCaseInsensitive = true
@@ -254,7 +279,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNotMatch
 		rule.Value = "^\\d+"
 		err := rule.Init()
@@ -266,7 +291,20 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
+		rule.Operator = RuleOperatorNotMatch
+		rule.Value = "^\\d+"
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsFalse(rule.Test([][]byte{[]byte("123"), []byte("456")}))
+		a.IsFalse(rule.Test([][]byte{[]byte("123"), []byte("abc")}))
+		a.IsTrue(rule.Test([][]byte{[]byte("abc123")}))
+	}
+
+	{
+		var rule = NewRule()
 		rule.Operator = RuleOperatorMatch
 		rule.Value = "^(?i)[a-z]+$"
 		err := rule.Init()
@@ -277,7 +315,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorContains
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -288,7 +326,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorContains
 		rule.Value = "hello"
 		rule.IsCaseInsensitive = true
@@ -300,7 +338,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorContains
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -317,7 +355,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNotContains
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -329,7 +367,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorNotContains
 		rule.Value = "hello"
 		rule.IsCaseInsensitive = true
@@ -342,7 +380,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorPrefix
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -350,11 +388,12 @@ func TestRule_Test(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.IsTrue(rule.Test("Hello, World"))
+		a.IsFalse(rule.Test("hello"))
 		a.IsFalse(rule.Test("World, Hello"))
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorPrefix
 		rule.Value = "hello"
 		rule.IsCaseInsensitive = true
@@ -363,11 +402,13 @@ func TestRule_Test(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.IsTrue(rule.Test("Hello, World"))
+		a.IsTrue(rule.Test("hello, World"))
+		a.IsFalse(rule.Test("hell"))
 		a.IsFalse(rule.Test("World, Hello"))
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorSuffix
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -379,7 +420,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorSuffix
 		rule.Value = "hello"
 		rule.IsCaseInsensitive = true
@@ -388,11 +429,13 @@ func TestRule_Test(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.IsFalse(rule.Test("Hello, World"))
+		a.IsTrue(rule.Test("Hello"))
+		a.IsFalse(rule.Test("llo"))
 		a.IsTrue(rule.Test("World, Hello"))
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorHasKey
 		rule.Value = "Hello"
 		err := rule.Init()
@@ -409,7 +452,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorHasKey
 		rule.Value = "hello"
 		rule.IsCaseInsensitive = true
@@ -427,7 +470,7 @@ func TestRule_Test(t *testing.T) {
 	}
 
 	{
-		rule := NewRule()
+		var rule = NewRule()
 		rule.Operator = RuleOperatorHasKey
 		rule.Value = "3"
 		err := rule.Init()
@@ -439,6 +482,45 @@ func TestRule_Test(t *testing.T) {
 			"Hello": "World",
 		}))
 		a.IsTrue(rule.Test([]int{1, 2, 3, 4}))
+	}
+	{
+		var rule = NewRule()
+		rule.Operator = RuleOperatorContainsAnyWord
+		rule.Value = "How\nare\nyou"
+		rule.IsCaseInsensitive = true
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsTrue(rule.Test("how"))
+		a.IsTrue(rule.Test("How doing"))
+		a.IsFalse(rule.Test("doing"))
+	}
+	{
+		var rule = NewRule()
+		rule.Operator = RuleOperatorContainsAllWords
+		rule.Value = "How\nare\nyou"
+		rule.IsCaseInsensitive = true
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsTrue(rule.Test("how are you"))
+		a.IsTrue(rule.Test("How are you doing"))
+		a.IsFalse(rule.Test("How are dare"))
+	}
+	{
+		var rule = NewRule()
+		rule.Operator = RuleOperatorContainsSQLInjection
+		err := rule.Init()
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.IsTrue(rule.Test("id=123 OR 1=1"))
+		a.IsTrue(rule.Test("id=456 UNION SELECT"))
+		a.IsTrue(rule.Test("id=456 AND select load_file('') --"))
+		a.IsFalse(rule.Test("id=123"))
+		a.IsFalse(rule.Test("id=abc123 hello world '"))
 	}
 }
 
@@ -614,7 +696,7 @@ func TestRule_IP(t *testing.T) {
 			Value:    "192.168.0.90,",
 		}
 		a.IsNil(rule.Init())
-		a.IsTrue(rule.Test("192.168.0.100"))
+		a.IsFalse(rule.Test("192.168.0.100"))
 	}
 
 	{
@@ -627,7 +709,7 @@ func TestRule_IP(t *testing.T) {
 	}
 
 	{
-		rule := Rule{
+		var rule = Rule{
 			Operator: RuleOperatorIPRange,
 			Value:    ",192.168.1.100",
 		}
@@ -667,7 +749,7 @@ func TestRule_IP(t *testing.T) {
 			Operator: RuleOperatorIPRange,
 			Value:    "a/18",
 		}
-		a.IsNotNil(rule.Init())
+		a.IsNil(rule.Init())
 		a.IsFalse(rule.Test("192.168.1.100"))
 	}
 

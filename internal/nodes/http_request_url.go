@@ -1,17 +1,17 @@
 package nodes
 
 import (
-	"errors"
-	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
-	"github.com/dashenmiren/EdgeNode/internal/utils"
-	"github.com/iwind/TeaGo/logs"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
+	"github.com/iwind/TeaGo/logs"
 )
 
 // 请求某个URL
-func (this *HTTPRequest) doURL(method string, url string, host string, statusCode int) {
+func (this *HTTPRequest) doURL(method string, url string, host string, statusCode int, supportVariables bool) {
 	req, err := http.NewRequest(method, url, this.RawReq.Body)
 	if err != nil {
 		logs.Error(err)
@@ -35,8 +35,8 @@ func (this *HTTPRequest) doURL(method string, url string, host string, statusCod
 	var client = utils.SharedHttpClient(60 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
-		logs.Error(errors.New(req.URL.String() + ": " + err.Error()))
-		this.write500(err)
+		remotelogs.Error("HTTP_REQUEST_URL", req.URL.String()+": "+err.Error())
+		this.write50x(err, http.StatusInternalServerError, "Failed to read url", "读取URL失败", false)
 		return
 	}
 	defer func() {
@@ -45,16 +45,19 @@ func (this *HTTPRequest) doURL(method string, url string, host string, statusCod
 
 	// Header
 	if statusCode <= 0 {
-		this.processResponseHeaders(resp.StatusCode)
+		this.ProcessResponseHeaders(this.writer.Header(), resp.StatusCode)
 	} else {
-		this.processResponseHeaders(statusCode)
+		this.ProcessResponseHeaders(this.writer.Header(), statusCode)
 	}
 
+	if supportVariables {
+		resp.Header.Del("Content-Length")
+	}
 	this.writer.AddHeaders(resp.Header)
 	if statusCode <= 0 {
-		this.writer.Prepare(resp.ContentLength, resp.StatusCode)
+		this.writer.Prepare(resp, resp.ContentLength, resp.StatusCode, true)
 	} else {
-		this.writer.Prepare(resp.ContentLength, statusCode)
+		this.writer.Prepare(resp, resp.ContentLength, statusCode, true)
 	}
 
 	// 设置响应代码
@@ -65,9 +68,15 @@ func (this *HTTPRequest) doURL(method string, url string, host string, statusCod
 	}
 
 	// 输出内容
-	pool := this.bytePool(resp.ContentLength)
-	buf := pool.Get()
-	_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+	var pool = this.bytePool(resp.ContentLength)
+	var buf = pool.Get()
+	if supportVariables {
+		_, err = utils.CopyWithFilter(this.writer, resp.Body, buf, func(p []byte) []byte {
+			return []byte(this.Format(string(p)))
+		})
+	} else {
+		_, err = io.CopyBuffer(this.writer, resp.Body, buf)
+	}
 	pool.Put(buf)
 
 	if err != nil {

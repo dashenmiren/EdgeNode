@@ -1,8 +1,9 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"net/http"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 // 调用Rewrite
@@ -15,11 +16,11 @@ func (this *HTTPRequest) doRewrite() (shouldShop bool) {
 	if this.rewriteRule.Mode == serverconfigs.HTTPRewriteModeProxy {
 		// 外部URL
 		if this.rewriteIsExternalURL {
-			host := this.Host
+			host := this.ReqHost
 			if len(this.rewriteRule.ProxyHost) > 0 {
 				host = this.rewriteRule.ProxyHost
 			}
-			this.doURL(this.RawReq.Method, this.rewriteReplace, host, 0)
+			this.doURL(this.RawReq.Method, this.rewriteReplace, host, 0, false)
 			return true
 		}
 
@@ -30,9 +31,11 @@ func (this *HTTPRequest) doRewrite() (shouldShop bool) {
 	// 跳转
 	if this.rewriteRule.Mode == serverconfigs.HTTPRewriteModeRedirect {
 		if this.rewriteRule.RedirectStatus > 0 {
-			http.Redirect(this.writer, this.RawReq, this.rewriteReplace, this.rewriteRule.RedirectStatus)
+			this.ProcessResponseHeaders(this.writer.Header(), this.rewriteRule.RedirectStatus)
+			httpRedirect(this.writer, this.RawReq, this.rewriteReplace, this.rewriteRule.RedirectStatus)
 		} else {
-			http.Redirect(this.writer, this.RawReq, this.rewriteReplace, http.StatusTemporaryRedirect)
+			this.ProcessResponseHeaders(this.writer.Header(), http.StatusTemporaryRedirect)
+			httpRedirect(this.writer, this.RawReq, this.rewriteReplace, http.StatusTemporaryRedirect)
 		}
 		return true
 	}

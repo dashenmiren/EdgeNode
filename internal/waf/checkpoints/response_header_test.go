@@ -1,9 +1,10 @@
 package checkpoints
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestResponseHeaderCheckpoint_ResponseValue(t *testing.T) {
@@ -13,5 +14,5 @@ func TestResponseHeaderCheckpoint_ResponseValue(t *testing.T) {
 	resp.Header.Set("Hello", "World")
 
 	checkpoint := new(ResponseHeaderCheckpoint)
-	t.Log(checkpoint.ResponseValue(nil, resp, "Hello", nil))
+	t.Log(checkpoint.ResponseValue(nil, resp, "Hello", nil, 1))
 }

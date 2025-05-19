@@ -2,10 +2,11 @@ package checkpoints
 
 import (
 	"bytes"
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestJSONArgCheckpoint_RequestValue_Map(t *testing.T) {
@@ -20,18 +21,18 @@ func TestRequestJSONArgCheckpoint_RequestValue_Map(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	checkpoint := new(RequestJSONArgCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "name", nil))
-	t.Log(checkpoint.RequestValue(req, "age", nil))
-	t.Log(checkpoint.RequestValue(req, "Hello", nil))
-	t.Log(checkpoint.RequestValue(req, "", nil))
-	t.Log(checkpoint.RequestValue(req, "books", nil))
-	t.Log(checkpoint.RequestValue(req, "books.1", nil))
+	t.Log(checkpoint.RequestValue(req, "name", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "age", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "Hello", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "books", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "books.1", nil, 1))
 
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.WAFRaw().Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,18 +51,18 @@ func TestRequestJSONArgCheckpoint_RequestValue_Array(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	checkpoint := new(RequestJSONArgCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "0.name", nil))
-	t.Log(checkpoint.RequestValue(req, "0.age", nil))
-	t.Log(checkpoint.RequestValue(req, "0.Hello", nil))
-	t.Log(checkpoint.RequestValue(req, "", nil))
-	t.Log(checkpoint.RequestValue(req, "0.books", nil))
-	t.Log(checkpoint.RequestValue(req, "0.books.1", nil))
+	t.Log(checkpoint.RequestValue(req, "0.name", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.age", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.Hello", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.books", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.books.1", nil, 1))
 
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.WAFRaw().Body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,18 +81,18 @@ func TestRequestJSONArgCheckpoint_RequestValue_Error(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	//req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	checkpoint := new(RequestJSONArgCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "0.name", nil))
-	t.Log(checkpoint.RequestValue(req, "0.age", nil))
-	t.Log(checkpoint.RequestValue(req, "0.Hello", nil))
-	t.Log(checkpoint.RequestValue(req, "", nil))
-	t.Log(checkpoint.RequestValue(req, "0.books", nil))
-	t.Log(checkpoint.RequestValue(req, "0.books.1", nil))
+	t.Log(checkpoint.RequestValue(req, "0.name", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.age", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.Hello", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.books", nil, 1))
+	t.Log(checkpoint.RequestValue(req, "0.books.1", nil, 1))
 
-	body, err := ioutil.ReadAll(req.Body)
+	body, err := io.ReadAll(req.WAFRaw().Body)
 	if err != nil {
 		t.Fatal(err)
 	}

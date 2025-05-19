@@ -1,14 +1,15 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"testing"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 func TestListener_Listen(t *testing.T) {
 	listener := NewListener()
 
-	group := serverconfigs.NewServerGroup("http://:1234")
+	group := serverconfigs.NewServerAddressGroup("https://:1234")
 
 	listener.Reload(group)
 	err := listener.Listen()

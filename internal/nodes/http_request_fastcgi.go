@@ -1,10 +1,15 @@
-// Copyright 2021 Liuxiangchao iwind.liu@gmail.com. All rights reserved.
-
 package nodes
 
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"path/filepath"
+	"strings"
+
 	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
@@ -13,11 +18,6 @@ import (
 	"github.com/iwind/TeaGo/rands"
 	"github.com/iwind/TeaGo/types"
 	"github.com/iwind/gofcgi/pkg/fcgi"
-	"io"
-	"net"
-	"net/url"
-	"path/filepath"
-	"strings"
 )
 
 func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
@@ -40,7 +40,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 	}
 
 	if !env.Has("REMOTE_ADDR") {
-		env["REMOTE_ADDR"] = this.requestRemoteAddr()
+		env["REMOTE_ADDR"] = this.requestRemoteAddr(true)
 	}
 	if !env.Has("QUERY_STRING") {
 		u, err := url.ParseRequestURI(this.uri)
@@ -51,13 +51,13 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 		}
 	}
 	if !env.Has("SERVER_NAME") {
-		env["SERVER_NAME"] = this.Host
+		env["SERVER_NAME"] = this.ReqHost
 	}
 	if !env.Has("REQUEST_URI") {
 		env["REQUEST_URI"] = this.uri
 	}
 	if !env.Has("HOST") {
-		env["HOST"] = this.Host
+		env["HOST"] = this.ReqHost
 	}
 
 	if len(this.ServerAddr) > 0 {
@@ -72,6 +72,16 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 		}
 	}
 
+	// 设置为持久化连接
+	var requestConn = this.RawReq.Context().Value(HTTPConnContextKey)
+	if requestConn == nil {
+		return
+	}
+	requestClientConn, ok := requestConn.(ClientConnInterface)
+	if ok {
+		requestClientConn.SetIsPersistent(true)
+	}
+
 	// 连接池配置
 	poolSize := fastcgi.PoolSize
 	if poolSize <= 0 {
@@ -80,7 +90,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	client, err := fcgi.SharedPool(fastcgi.Network(), fastcgi.RealAddress(), uint(poolSize)).Client()
 	if err != nil {
-		this.write500(err)
+		this.write50x(err, http.StatusInternalServerError, "Failed to create Fastcgi pool", "Fastcgi池生成失败", false)
 		return
 	}
 
@@ -100,7 +110,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	// 处理SCRIPT_FILENAME
 	scriptPath := env.GetString("SCRIPT_FILENAME")
-	if len(scriptPath) > 0 && (strings.Index(scriptPath, "/") < 0 && strings.Index(scriptPath, "\\") < 0) {
+	if len(scriptPath) > 0 && !strings.Contains(scriptPath, "/") && !strings.Contains(scriptPath, "\\") {
 		env["SCRIPT_FILENAME"] = env.GetString("DOCUMENT_ROOT") + Tea.DS + scriptPath
 	}
 	scriptFilename := filepath.Base(this.RawReq.URL.Path)
@@ -148,7 +158,7 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	host, found := params["HTTP_HOST"]
 	if !found || len(host) == 0 {
-		params["HTTP_HOST"] = this.Host
+		params["HTTP_HOST"] = this.ReqHost
 	}
 
 	fcgiReq := fcgi.NewRequest()
@@ -158,13 +168,13 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	resp, stderr, err := client.Call(fcgiReq)
 	if err != nil {
-		this.write500(err)
+		this.write50x(err, http.StatusInternalServerError, "Failed to read Fastcgi", "读取Fastcgi失败", false)
 		return
 	}
 
 	if len(stderr) > 0 {
 		err := errors.New("Fastcgi Error: " + strings.TrimSpace(string(stderr)) + " script: " + maps.NewMap(params).GetString("SCRIPT_FILENAME"))
-		this.write500(err)
+		this.write50x(err, http.StatusInternalServerError, "Failed to read Fastcgi", "读取Fastcgi失败", false)
 		return
 	}
 
@@ -186,10 +196,10 @@ func (this *HTTPRequest) doFastcgi() (shouldStop bool) {
 
 	// 响应Header
 	this.writer.AddHeaders(resp.Header)
-	this.processResponseHeaders(resp.StatusCode)
+	this.ProcessResponseHeaders(this.writer.Header(), resp.StatusCode)
 
 	// 准备
-	this.writer.Prepare(resp.ContentLength, resp.StatusCode)
+	this.writer.Prepare(resp, resp.ContentLength, resp.StatusCode, true)
 
 	// 设置响应代码
 	this.writer.WriteHeader(resp.StatusCode)

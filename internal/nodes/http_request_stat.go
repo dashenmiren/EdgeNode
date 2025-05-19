@@ -1,12 +1,16 @@
 package nodes
 
-import "github.com/dashenmiren/EdgeNode/internal/stats"
+import (
+	"github.com/dashenmiren/EdgeNode/internal/stats"
+)
 
 // 统计
 func (this *HTTPRequest) doStat() {
-	if this.Server == nil {
+	if this.ReqServer == nil || this.web == nil || this.web.StatRef == nil {
 		return
 	}
-	stats.SharedHTTPRequestStatManager.AddRemoteAddr(this.Server.Id, this.requestRemoteAddr())
-	stats.SharedHTTPRequestStatManager.AddUserAgent(this.Server.Id, this.requestHeader("User-Agent"))
+
+	// 内置的统计
+	stats.SharedHTTPRequestStatManager.AddRemoteAddr(this.ReqServer.Id, this.requestRemoteAddr(true), this.writer.SentBodyBytes(), this.isAttack)
+	stats.SharedHTTPRequestStatManager.AddUserAgent(this.ReqServer.Id, this.requestHeader("User-Agent"), this.remoteAddr)
 }

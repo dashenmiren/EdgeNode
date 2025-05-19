@@ -1,9 +1,10 @@
 package checkpoints
 
 import (
-	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"net/http"
 	"testing"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 func TestRequestPathCheckpoint_RequestValue(t *testing.T) {
@@ -12,7 +13,7 @@ func TestRequestPathCheckpoint_RequestValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := requests.NewRequest(rawReq)
+	req := requests.NewTestRequest(rawReq)
 	checkpoint := new(RequestPathCheckpoint)
-	t.Log(checkpoint.RequestValue(req, "", nil))
+	t.Log(checkpoint.RequestValue(req, "", nil, 1))
 }

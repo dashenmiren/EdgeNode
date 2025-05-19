@@ -1,61 +1,103 @@
 package utils
 
 import (
-	"fmt"
-	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
-	"github.com/cespare/xxhash"
-	"github.com/iwind/TeaGo/types"
-	"regexp"
 	"strconv"
-	"time"
+
+	"github.com/cespare/xxhash/v2"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/re"
+	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
+	"github.com/dashenmiren/EdgeNode/internal/utils/cachehits"
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/iwind/TeaGo/types"
+	stringutil "github.com/iwind/TeaGo/utils/string"
 )
 
-//var grid = grids.NewGrid(32, grids.NewLimitCountOpt(1000_0000))
-var cache = ttlcache.NewCache()
+var SharedCache = ttlcache.NewCache[int8]()
+var cacheHits *cachehits.Stat
 
-// 正则表达式匹配字符串，并缓存结果
-func MatchStringCache(regex *regexp.Regexp, s string) bool {
-	// 如果长度超过4096，大概率是不能重用的
-	if len(s) > 4096 {
+func init() {
+	if !teaconst.IsMain {
+		return
+	}
+	cacheHits = cachehits.NewStat(5)
+}
+
+const (
+	MaxCacheDataSize = 1024
+)
+
+type CacheLife = int64
+
+const (
+	CacheDisabled   CacheLife = 0
+	CacheShortLife  CacheLife = 600
+	CacheMiddleLife CacheLife = 1800
+	CacheLongLife   CacheLife = 7200
+)
+
+// MatchStringCache 正则表达式匹配字符串，并缓存结果
+func MatchStringCache(regex *re.Regexp, s string, cacheLife CacheLife) bool {
+	if regex == nil {
+		return false
+	}
+
+	var regIdString = regex.IdString()
+
+	// 如果长度超过一定数量，大概率是不能重用的
+	if cacheLife <= 0 || len(s) > MaxCacheDataSize || !cacheHits.IsGood(regIdString) {
 		return regex.MatchString(s)
 	}
 
-	hash := xxhash.Sum64String(s)
-	key := fmt.Sprintf("%p_", regex) + strconv.FormatUint(hash, 10)
-	item := cache.Read(key)
+	var hash = xxhash.Sum64String(s)
+	var key = regIdString + "@" + strconv.FormatUint(hash, 10)
+	var item = SharedCache.Read(key)
 	if item != nil {
-		return types.Int8(item.Value) == 1
+		cacheHits.IncreaseHit(regIdString)
+		return item.Value == 1
 	}
-	b := regex.MatchString(s)
+	var b = regex.MatchString(s)
 	if b {
-		cache.Write(key, 1, time.Now().Unix()+1800)
+		SharedCache.Write(key, 1, fasttime.Now().Unix()+cacheLife)
 	} else {
-		cache.Write(key, 0, time.Now().Unix()+1800)
+		SharedCache.Write(key, 0, fasttime.Now().Unix()+cacheLife)
 	}
+	cacheHits.IncreaseCached(regIdString)
 	return b
 }
 
-// 正则表达式匹配字节slice，并缓存结果
-func MatchBytesCache(regex *regexp.Regexp, byteSlice []byte) bool {
-	// 如果长度超过4096，大概率是不能重用的
-	if len(byteSlice) > 4096 {
+// MatchBytesCache 正则表达式匹配字节slice，并缓存结果
+func MatchBytesCache(regex *re.Regexp, byteSlice []byte, cacheLife CacheLife) bool {
+	if regex == nil {
+		return false
+	}
+
+	var regIdString = regex.IdString()
+
+	// 如果长度超过一定数量，大概率是不能重用的
+	if cacheLife <= 0 || len(byteSlice) > MaxCacheDataSize || !cacheHits.IsGood(regIdString) {
 		return regex.Match(byteSlice)
 	}
 
-	hash := xxhash.Sum64(byteSlice)
-	key := fmt.Sprintf("%p_", regex) + strconv.FormatUint(hash, 10)
-	item := cache.Read(key)
+	var hash = xxhash.Sum64(byteSlice)
+	var key = regIdString + "@" + strconv.FormatUint(hash, 10)
+	var item = SharedCache.Read(key)
 	if item != nil {
-		return types.Int8(item.Value) == 1
+		cacheHits.IncreaseHit(regIdString)
+		return item.Value == 1
 	}
-	if item != nil {
-		return types.Int8(item.Value) == 1
-	}
-	b := regex.Match(byteSlice)
+	var b = regex.Match(byteSlice)
 	if b {
-		cache.Write(key, 1, time.Now().Unix()+1800)
+		SharedCache.Write(key, 1, fasttime.Now().Unix()+cacheLife)
 	} else {
-		cache.Write(key, 0, time.Now().Unix()+1800)
+		SharedCache.Write(key, 0, fasttime.Now().Unix()+cacheLife)
 	}
+	cacheHits.IncreaseCached(regIdString)
 	return b
+}
+
+// ComposeIPType 组合IP类型
+func ComposeIPType(setId int64, req requests.Request) string {
+	return "set:" + types.String(setId) + "@" + stringutil.Md5(req.WAFRaw().UserAgent())
 }

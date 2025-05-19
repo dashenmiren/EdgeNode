@@ -1,6 +1,8 @@
 package iplibrary
 
-import "github.com/dashenmiren/EdgeNode/internal/utils"
+import (
+	"github.com/dashenmiren/EdgeNode/internal/utils/fasttime"
+)
 
 type IPItemType = string
 
@@ -10,17 +12,17 @@ const (
 	IPItemTypeAll  IPItemType = "all"  // 所有IP
 )
 
-// IP条目
+// IPItem IP条目
 type IPItem struct {
 	Type       string `json:"type"`
-	Id         int64  `json:"id"`
+	Id         uint64 `json:"id"`
 	IPFrom     uint64 `json:"ipFrom"`
 	IPTo       uint64 `json:"ipTo"`
 	ExpiredAt  int64  `json:"expiredAt"`
 	EventLevel string `json:"eventLevel"`
 }
 
-// 检查是否包含某个IP
+// Contains 检查是否包含某个IP
 func (this *IPItem) Contains(ip uint64) bool {
 	switch this.Type {
 	case IPItemTypeIPv4:
@@ -28,7 +30,7 @@ func (this *IPItem) Contains(ip uint64) bool {
 	case IPItemTypeIPv6:
 		return this.containsIPv6(ip)
 	case IPItemTypeAll:
-		return this.containsAll(ip)
+		return this.containsAll()
 	default:
 		return this.containsIPv4(ip)
 	}
@@ -45,7 +47,7 @@ func (this *IPItem) containsIPv4(ip uint64) bool {
 			return false
 		}
 	}
-	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
+	if this.ExpiredAt > 0 && this.ExpiredAt < fasttime.Now().Unix() {
 		return false
 	}
 	return true
@@ -56,15 +58,15 @@ func (this *IPItem) containsIPv6(ip uint64) bool {
 	if this.IPFrom != ip {
 		return false
 	}
-	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
+	if this.ExpiredAt > 0 && this.ExpiredAt < fasttime.Now().Unix() {
 		return false
 	}
 	return true
 }
 
 // 检查是否包所有IP
-func (this *IPItem) containsAll(ip uint64) bool {
-	if this.ExpiredAt > 0 && this.ExpiredAt < utils.UnixTime() {
+func (this *IPItem) containsAll() bool {
+	if this.ExpiredAt > 0 && this.ExpiredAt < fasttime.Now().Unix() {
 		return false
 	}
 	return true

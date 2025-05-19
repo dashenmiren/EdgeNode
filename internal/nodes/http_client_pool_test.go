@@ -1,34 +1,37 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"context"
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/utils/testutils"
 )
 
 func TestHTTPClientPool_Client(t *testing.T) {
-	pool := NewHTTPClientPool()
+	var pool = NewHTTPClientPool()
 
 	{
-		origin := &serverconfigs.OriginConfig{
+		var origin = &serverconfigs.OriginConfig{
 			Id:      1,
 			Version: 2,
 			Addr:    &serverconfigs.NetworkAddressConfig{Host: "127.0.0.1", PortRange: "1234"},
 		}
-		err := origin.Init()
+		err := origin.Init(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
 		{
-			client, err := pool.Client(nil, origin, origin.Addr.PickAddress())
+			client, err := pool.Client(nil, origin, origin.Addr.PickAddress(), nil, false)
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Log("client:", client)
 		}
 		for i := 0; i < 10; i++ {
-			client, err := pool.Client(nil, origin, origin.Addr.PickAddress())
+			client, err := pool.Client(nil, origin, origin.Addr.PickAddress(), nil, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -38,41 +41,45 @@ func TestHTTPClientPool_Client(t *testing.T) {
 }
 
 func TestHTTPClientPool_cleanClients(t *testing.T) {
-	origin := &serverconfigs.OriginConfig{
+	var origin = &serverconfigs.OriginConfig{
 		Id:      1,
 		Version: 2,
 		Addr:    &serverconfigs.NetworkAddressConfig{Host: "127.0.0.1", PortRange: "1234"},
 	}
-	err := origin.Init()
+	err := origin.Init(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pool := NewHTTPClientPool()
-	pool.clientExpiredDuration = 2 * time.Second
+	var pool = NewHTTPClientPool()
 
 	for i := 0; i < 10; i++ {
 		t.Log("get", i)
-		_, _ = pool.Client(nil, origin, origin.Addr.PickAddress())
-		time.Sleep(1 * time.Second)
+		_, _ = pool.Client(nil, origin, origin.Addr.PickAddress(), nil, false)
+
+		if testutils.IsSingleTesting() {
+			time.Sleep(1 * time.Second)
+		}
 	}
 }
 
 func BenchmarkHTTPClientPool_Client(b *testing.B) {
 	runtime.GOMAXPROCS(1)
 
-	origin := &serverconfigs.OriginConfig{
+	var origin = &serverconfigs.OriginConfig{
 		Id:      1,
 		Version: 2,
 		Addr:    &serverconfigs.NetworkAddressConfig{Host: "127.0.0.1", PortRange: "1234"},
 	}
-	err := origin.Init()
+	err := origin.Init(context.Background())
 	if err != nil {
 		b.Fatal(err)
 	}
 
-	pool := NewHTTPClientPool()
+	b.ResetTimer()
+
+	var pool = NewHTTPClientPool()
 	for i := 0; i < b.N; i++ {
-		_, _ = pool.Client(nil, origin, origin.Addr.PickAddress())
+		_, _ = pool.Client(nil, origin, origin.Addr.PickAddress(), nil, false)
 	}
 }

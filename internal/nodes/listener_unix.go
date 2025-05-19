@@ -1,8 +1,9 @@
 package nodes
 
 import (
-	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 	"net"
+
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs"
 )
 
 type UnixListener struct {
@@ -22,7 +23,7 @@ func (this *UnixListener) Close() error {
 	return nil
 }
 
-func (this *UnixListener) Reload(group *serverconfigs.ServerGroup) {
+func (this *UnixListener) Reload(group *serverconfigs.ServerAddressGroup) {
 	this.Group = group
 	this.Reset()
 }

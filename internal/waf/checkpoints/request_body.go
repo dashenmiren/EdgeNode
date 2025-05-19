@@ -2,36 +2,49 @@ package checkpoints
 
 import (
 	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/utils"
 	"github.com/iwind/TeaGo/maps"
 )
 
-// ${requestBody}
+// RequestBodyCheckpoint ${requestBody}
 type RequestBodyCheckpoint struct {
 	Checkpoint
 }
 
-func (this *RequestBodyCheckpoint) RequestValue(req *requests.Request, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
-	if req.Body == nil {
+func (this *RequestBodyCheckpoint) RequestValue(req requests.Request, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
+	if this.RequestBodyIsEmpty(req) {
 		value = ""
 		return
 	}
 
-	if len(req.BodyData) == 0 {
-		data, err := req.ReadBody(int64(32 * 1024 * 1024)) // read 32m bytes
+	if req.WAFRaw().Body == nil {
+		value = ""
+		return
+	}
+
+	var bodyData = req.WAFGetCacheBody()
+	hasRequestBody = true
+	if len(bodyData) == 0 {
+		data, err := req.WAFReadBody(req.WAFMaxRequestSize()) // read body
 		if err != nil {
-			return "", err, nil
+			return "", hasRequestBody, err, nil
 		}
 
-		req.BodyData = data
-		req.RestoreBody(data)
+		bodyData = data
+		req.WAFSetCacheBody(data)
+		req.WAFRestoreBody(data)
 	}
 
-	return req.BodyData, nil, nil
+	return bodyData, hasRequestBody, nil, nil
 }
 
-func (this *RequestBodyCheckpoint) ResponseValue(req *requests.Request, resp *requests.Response, param string, options maps.Map) (value interface{}, sysErr error, userErr error) {
+func (this *RequestBodyCheckpoint) ResponseValue(req requests.Request, resp *requests.Response, param string, options maps.Map, ruleId int64) (value any, hasRequestBody bool, sysErr error, userErr error) {
 	if this.IsRequest() {
-		return this.RequestValue(req, param, options)
+		return this.RequestValue(req, param, options, ruleId)
 	}
 	return
+}
+
+func (this *RequestBodyCheckpoint) CacheLife() utils.CacheLife {
+	return utils.CacheDisabled
 }

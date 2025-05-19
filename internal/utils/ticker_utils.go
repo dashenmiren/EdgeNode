@@ -1,15 +1,19 @@
 package utils
 
-import "time"
+import (
+	"time"
 
-// 定时运行某个函数
+	"github.com/dashenmiren/EdgeNode/internal/goman"
+)
+
+// Every 定时运行某个函数
 func Every(duration time.Duration, f func(ticker *Ticker)) *Ticker {
 	ticker := NewTicker(duration)
-	go func() {
+	goman.New(func() {
 		for ticker.Next() {
 			f(ticker)
 		}
-	}()
+	})
 
 	return ticker
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
 type errorObj struct {
@@ -15,7 +17,7 @@ type errorObj struct {
 }
 
 func (this *errorObj) Error() string {
-	s := this.err.Error() + "\n  " + this.file
+	s := this.err.Error() + "\n  " + utils.RemoveWorkspace(this.file)
 	if len(this.funcName) > 0 {
 		s += ":" + this.funcName + "()"
 	}
@@ -23,7 +25,7 @@ func (this *errorObj) Error() string {
 	return s
 }
 
-// 新错误
+// New 新错误
 func New(errText string) error {
 	ptr, file, line, ok := runtime.Caller(1)
 	funcName := ""
@@ -39,7 +41,7 @@ func New(errText string) error {
 	}
 }
 
-// 包装已有错误
+// Wrap 包装已有错误
 func Wrap(err error) error {
 	if err == nil {
 		return nil

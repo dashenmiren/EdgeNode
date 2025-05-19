@@ -19,7 +19,6 @@ func TestAES128CFBMethod_Encrypt(t *testing.T) {
 	dst = dst[:len(src)]
 	t.Log("dst:", string(dst))
 
-	src = make([]byte, len(src))
 	src, err = method.Decrypt(dst)
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +53,6 @@ func TestAES128CFBMethod_Encrypt2(t *testing.T) {
 	}
 
 	{
-
 		a := []byte{1}
 		_, err = method.Decrypt(a)
 		if err != nil {
@@ -64,7 +62,6 @@ func TestAES128CFBMethod_Encrypt2(t *testing.T) {
 
 	for _, dst := range sources {
 		dst2 := append([]byte{}, dst...)
-		src2 := make([]byte, len(dst2))
 		src2, err := method.Decrypt(dst2)
 		if err != nil {
 			t.Fatal(err)

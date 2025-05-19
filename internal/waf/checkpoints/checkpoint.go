@@ -1,6 +1,13 @@
 package checkpoints
 
+import (
+	"net/http"
+
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
+)
+
 type Checkpoint struct {
+	priority int
 }
 
 func (this *Checkpoint) Init() {
@@ -29,4 +36,25 @@ func (this *Checkpoint) Start() {
 
 func (this *Checkpoint) Stop() {
 
+}
+
+func (this *Checkpoint) SetPriority(priority int) {
+	this.priority = priority
+}
+
+func (this *Checkpoint) Priority() int {
+	return this.priority
+}
+
+func (this *Checkpoint) RequestBodyIsEmpty(req requests.Request) bool {
+	if req.WAFRaw().ContentLength == 0 {
+		return true
+	}
+
+	var method = req.WAFRaw().Method
+	if method == http.MethodHead || method == http.MethodGet {
+		return true
+	}
+
+	return false
 }
