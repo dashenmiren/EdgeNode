@@ -1,7 +1,7 @@
 package rpc
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/configs"
+	"github.com/dashenmiren/EdgeNode/internal/configs"
 	"sync"
 )
 

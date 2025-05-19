@@ -1,6 +1,6 @@
 package iplibrary
 
-import "github.com/TeaOSLab/EdgeNode/internal/utils"
+import "github.com/dashenmiren/EdgeNode/internal/utils"
 
 type IPItemType = string
 

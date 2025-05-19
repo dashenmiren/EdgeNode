@@ -1,7 +1,7 @@
 package utils
 
 import (
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"testing"
 )
 

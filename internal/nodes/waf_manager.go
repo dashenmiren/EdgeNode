@@ -1,10 +1,10 @@
 package nodes
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
-	"github.com/TeaOSLab/EdgeNode/internal/errors"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/waf"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeNode/internal/errors"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/waf"
 	"strconv"
 	"sync"
 )

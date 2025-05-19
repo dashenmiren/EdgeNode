@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/ttlcache"
+	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
 	"github.com/cespare/xxhash"
 	"github.com/iwind/TeaGo/types"
 	"regexp"

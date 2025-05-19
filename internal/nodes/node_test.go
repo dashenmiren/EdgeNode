@@ -1,7 +1,7 @@
 package nodes
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
 	"github.com/golang/protobuf/proto"
 	_ "github.com/iwind/TeaGo/bootstrap"
 	"io"

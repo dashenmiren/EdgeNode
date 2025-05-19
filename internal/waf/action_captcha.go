@@ -1,7 +1,7 @@
 package waf
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"
 	"net/http"

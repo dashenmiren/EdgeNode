@@ -1,6 +1,6 @@
 package nodes
 
-import "github.com/TeaOSLab/EdgeNode/internal/stats"
+import "github.com/dashenmiren/EdgeNode/internal/stats"
 
 // 统计
 func (this *HTTPRequest) doStat() {

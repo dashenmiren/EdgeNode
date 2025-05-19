@@ -1,7 +1,7 @@
 package stats
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/iplibrary"
+	"github.com/dashenmiren/EdgeNode/internal/iplibrary"
 	"github.com/iwind/TeaGo/logs"
 	"testing"
 )

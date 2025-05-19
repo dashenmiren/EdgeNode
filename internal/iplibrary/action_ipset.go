@@ -3,8 +3,8 @@ package iplibrary
 import (
 	"bytes"
 	"errors"
-	"github.com/TeaOSLab/EdgeCommon/pkg/rpc/pb"
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/firewallconfigs"
+	"github.com/dashenmiren/EdgeCommon/pkg/rpc/pb"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/firewallconfigs"
 	"os/exec"
 	"runtime"
 	"strconv"

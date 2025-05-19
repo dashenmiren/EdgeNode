@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/apps"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
-	"github.com/TeaOSLab/EdgeNode/internal/nodes"
+	"github.com/dashenmiren/EdgeNode/internal/apps"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
+	"github.com/dashenmiren/EdgeNode/internal/nodes"
 	"github.com/iwind/TeaGo/Tea"
 	_ "github.com/iwind/TeaGo/bootstrap"
 	"github.com/iwind/TeaGo/logs"

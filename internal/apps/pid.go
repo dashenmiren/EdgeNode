@@ -2,7 +2,7 @@ package apps
 
 import (
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/events"
+	"github.com/dashenmiren/EdgeNode/internal/events"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/types"
 	"io/ioutil"

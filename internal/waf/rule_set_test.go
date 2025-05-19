@@ -2,7 +2,7 @@ package waf
 
 import (
 	"bytes"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/cespare/xxhash"
 	"github.com/iwind/TeaGo/assert"
 	"net/http"

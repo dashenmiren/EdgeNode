@@ -1,7 +1,7 @@
 package caches
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 )
 
 type ItemType = int

@@ -4,8 +4,8 @@ package caches
 
 import (
 	"database/sql"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/lists"
 	_ "github.com/mattn/go-sqlite3"
 	"os"

@@ -1,7 +1,7 @@
 package checkpoints
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 )
 
 // just a sample checkpoint, copy and change it for your new checkpoint

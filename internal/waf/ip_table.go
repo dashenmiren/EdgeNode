@@ -1,7 +1,7 @@
 package waf
 
 import (
-	"github.com/TeaOSLab/EdgeCommon/pkg/serverconfigs/shared"
+	"github.com/dashenmiren/EdgeCommon/pkg/serverconfigs/shared"
 	"github.com/iwind/TeaGo/lists"
 	"github.com/iwind/TeaGo/types"
 	stringutil "github.com/iwind/TeaGo/utils/string"

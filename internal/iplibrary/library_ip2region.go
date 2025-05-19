@@ -2,8 +2,8 @@ package iplibrary
 
 import (
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/errors"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/errors"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/lionsoul2014/ip2region/binding/golang/ip2region"
 	"strings"
 )

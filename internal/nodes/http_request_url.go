@@ -2,8 +2,8 @@ package nodes
 
 import (
 	"errors"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/logs"
 	"io"
 	"net/http"

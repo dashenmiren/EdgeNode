@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/dchest/captcha"
 	"github.com/iwind/TeaGo/logs"
 	stringutil "github.com/iwind/TeaGo/utils/string"

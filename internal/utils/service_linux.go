@@ -4,7 +4,7 @@ package utils
 
 import (
 	"errors"
-	teaconst "github.com/TeaOSLab/EdgeNode/internal/const"
+	teaconst "github.com/dashenmiren/EdgeNode/internal/const"
 	"github.com/iwind/TeaGo/Tea"
 	"github.com/iwind/TeaGo/files"
 	"io/ioutil"

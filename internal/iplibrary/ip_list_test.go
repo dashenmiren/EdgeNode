@@ -1,7 +1,7 @@
 package iplibrary
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/assert"
 	"github.com/iwind/TeaGo/logs"
 	"runtime"

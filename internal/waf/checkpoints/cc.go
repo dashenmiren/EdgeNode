@@ -1,8 +1,8 @@
 package checkpoints
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/ttlcache"
-	"github.com/TeaOSLab/EdgeNode/internal/waf/requests"
+	"github.com/dashenmiren/EdgeNode/internal/ttlcache"
+	"github.com/dashenmiren/EdgeNode/internal/waf/requests"
 	"github.com/iwind/TeaGo/maps"
 	"github.com/iwind/TeaGo/types"
 	"net"

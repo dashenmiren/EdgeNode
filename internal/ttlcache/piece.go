@@ -1,7 +1,7 @@
 package ttlcache
 
 import (
-	"github.com/TeaOSLab/EdgeNode/internal/utils"
+	"github.com/dashenmiren/EdgeNode/internal/utils"
 	"github.com/iwind/TeaGo/types"
 	"sync"
 	"time"

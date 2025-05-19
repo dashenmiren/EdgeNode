@@ -3,8 +3,8 @@ package nodes
 import (
 	"bytes"
 	"errors"
-	"github.com/TeaOSLab/EdgeNode/internal/caches"
-	"github.com/TeaOSLab/EdgeNode/internal/remotelogs"
+	"github.com/dashenmiren/EdgeNode/internal/caches"
+	"github.com/dashenmiren/EdgeNode/internal/remotelogs"
 	"github.com/iwind/TeaGo/logs"
 	"net/http"
 	"strconv"
